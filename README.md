@@ -2,6 +2,11 @@
 
 Workspace ini sudah disiapkan untuk penelitian prediksi `Diabetes Mellitus Tipe 2 (T2DM)` berbasis data EHR.
 
+## Dokumen Tambahan
+
+- [Panduan penggunaan `main.py`](docs/README_PENGGUNAAN_MAIN.md)
+- [Ringkasan eksperimen dan hasil penelitian](docs/README_EKSPERIMEN_DAN_HASIL.md)
+
 ## Struktur Folder
 
 - `data/raw/`: dataset mentah CSV
