@@ -1,0 +1,3473 @@
+Analisis Perbandingan Model Machine Learning untuk Prediksi
+Diabetes Mellitus Tipe 2 dengan Pendekatan Explainable AI
+
+Tugas Akhir
+diajukan untuk memenuhi salah satu syarat memperoleh gelar sarjana
+pada Program Studi Sains Data
+Direktorat Kampus Purwokerto
+Universitas Telkom
+
+2311110037
+Ratih Ambara Sukma Kurnilia
+
+Program Studi Sarjana Sains Data
+Direktorat Kampus Purwokerto
+Universitas Telkom
+Purwokerto
+2026
+
+LEMBAR PENGESAHAN
+
+Analisis Perbandingan Model Machine Learning untuk Prediksi
+Diabetes Mellitus Tipe 2 dengan Pendekatan Explainable AI
+Comparative Analysis of Machine Learning Models for Predicting Type 2
+Diabetes Mellitus with an Explainable AI Approach
+
+2311110037
+Ratih Ambara Sukma Kurnilia
+
+Usulan Penelitian Tugas Akhir telah disetujui pada tanggal
+19 Mei 2026
+
+Menyetujui
+Pembimbing I,
+
+Pembimbing II,
+
+Aditya Dwi Putro W, S.Kom., M.Kom.
+NIP: 17930052
+
+Lisda, S.Kom., M.Kom.
+NIP: 24990008
+
+Ketua Program Studi
+Sarjana Sains Data,
+
+Sudianto, S.Pd., M.Kom.
+NIP: 24930008
+
+ii
+
+LEMBAR ORISINALITAS
+
+Dengan ini saya, Ratih Ambara Sukma Kurnilia, menyatakan sesungguhnya bahwa
+Tugas Akhir saya dengan judul Analisis Perbandingan Model Machine Learning
+untuk Prediksi Diabetes Mellitus Tipe 2 dengan Pendekatan Explainable AI beserta
+dengan seluruh isinya merupakan hasil karya saya sendiri, dengan tidak melakukan
+penjiplakan yang tidak sesuai dengan etika keilmuan yang berlaku dengan
+masyarakat keilmuan, serta produk dari tugas akhir ini bukan merupakan hasil dari
+Generative AI. Saya siap menanggung risiko/sanksi yang diberikan jika di
+kemudian hari ditemukan pelanggaran terhadap etika keilmuan dalam Laporan
+Tugas Akhir, atau jika ada klaim dari pihak lain terhadap keaslian karya.
+
+Purwokerto, 19 Mei 2026
+Yang menyatakan
+
+Ratih Ambara Sukma Kurnilia
+NIM: 2311110037
+
+iii
+
+ABSTRAK
+Diabetes Mellitus Tipe 2 (T2DM) merupakan penyakit kronis dengan prevalensi
+yang terus meningkat dan memerlukan deteksi dini untuk mencegah komplikasi. Penelitian
+ini bertujuan untuk menganalisis perbandingan performa algoritma machine learning
+dalam memprediksi T2DM berbasis data Electronic Health Records. Dataset yang
+digunakan meliputi data demografis, riwayat diagnosis, penggunaan obat, serta hasil
+pemeriksaan klinis yang diintegrasikan menggunakan atribut PatientGuid. Metode
+penelitian menggunakan kerangka kerja OSEMN yang mencakup perolehan data,
+pembersihan dan penyiapan data, eksplorasi data, pemodelan, serta interpretasi hasil. Pada
+tahap preprocessing dilakukan penanganan missing values, encoding variabel kategorikal,
+serta standarisasi fitur numerik. Data kemudian dibagi menjadi data latih dan data uji
+menggunakan stratified split untuk menjaga distribusi kelas. Model yang dibandingkan
+terdiri dari algoritma baseline yaitu Logistic Regression, Support Vector Machine, dan KNearest Neighbors, serta algoritma boosting yaitu Gradient Boosting, XGBoost, dan
+LightGBM. Perbandingan performa model dilakukan untuk mengidentifikasi algoritma
+terbaik dalam memprediksi T2DM, dengan optimasi hyperparameter menggunakan
+Optuna. Model dengan performa terbaik selanjutnya akan diinterpretasikan menggunakan
+pendekatan Explainable Artificial Intelligence dengan metode SHAP untuk memberikan
+pemahaman mengenai kontribusi fitur dalam proses prediksi.
+Kata Kunci: diabetes mellitus tipe 2, machine learning, electronic health records,
+klasifikasi, prediksi, optuna
+
+iv
+
+ABSTRACT
+Type 2 Diabetes Mellitus (T2DM) is a chronic disease with increasing prevalence
+and requires early detection to prevent complications. This study aims to analyze the
+comparative performance of machine learning algorithms in predicting T2DM based on
+Electronic Health Records data. The dataset includes patient demographics, diagnosis
+history, medication usage, and clinical measurements, which are integrated using the
+PatientGuid attribute. The research method follows the OSEMN framework, including data
+acquisition, data cleaning and preparation, data exploration, modeling, and result
+interpretation. In the preprocessing stage, missing values are handled, categorical
+variables are encoded, and numerical features are standardized. The dataset is then
+divided into training and testing sets using a stratified split to maintain class distribution.
+The models compared in this study include baseline algorithms, namely Logistic
+Regression, Support Vector Machine, and K-Nearest Neighbors, as well as boosting
+algorithms, including Gradient Boosting, XGBoost, and LightGBM. A comparative
+analysis is conducted to identify the best-performing algorithm for T2DM prediction, with
+hyperparameter optimization performed using the Optuna framework. The best-performing
+model will be further interpreted using Explainable Artificial Intelligence with the SHAP
+method to provide insights into feature contributions in the prediction process.
+Keywords: type 2 diabetes mellitus, machine learning, electronic health records,
+classification, prediction, optuna
+
+v
+
+KATA PENGANTAR
+
+Puji dan syukur penulis panjatkan ke hadirat Tuhan Yang Maha Esa atas
+segala rahmat dan karunia-Nya sehingga penulis dapat menyelesaikan proposal
+tugas akhir ini dengan baik. Proposal ini disusun sebagai salah satu syarat untuk
+menyelesaikan pendidikan pada Program Studi yang penulis tempuh.
+Penulisan proposal tugas akhir ini bertujuan untuk mengkaji dan menganalisis
+topik yang telah dipilih oleh penulis, serta sebagai langkah awal dalam penyusunan
+tugas akhir yang lebih komprehensif. Penulis menyadari bahwa dalam proses
+penyusunan proposal ini tidak terlepas dari bantuan, bimbingan, serta dukungan
+dari berbagai pihak. Oleh karena itu, pada kesempatan ini penulis ingin
+menyampaikan ucapan terima kasih kepada:
+1. Allah SWT dan Nabi Muhammad SAW atas segala rahmat dan petunjukNya.
+2. Kedua orang tua tercinta, Ayah dan Ibu, yang senantiasa memberikan
+dukungan moral, doa, serta dukungan finansial.
+3. Bapak Sudianto, S.Pd., M.Kom. selaku Ketua Program Studi Sains Data
+yang telah memberikan arahan selama masa perkuliahan.
+4. Bapak Aditya Dwi Putro W, S.Kom., M.Kom. dan Lisda, S.Kom., M.Kom.
+selaku dosen pembimbing yang telah memberikan bimbingan, arahan, serta
+masukan selama proses penyusunan skripsi.
+5. Semua pihak yang tidak dapat disebutkan satu per satu yang telah membantu
+dalam penyusunan skripsi ini.
+Purwokerto, 19 Mei 2026
+
+Ratih Ambara Sukma Kurnilia
+
+vi
+
+DAFTAR ISI
+LEMBAR PENGESAHAN .................................................................................. ii
+LEMBAR ORISINALITAS ................................................................................ iii
+ABSTRAK ............................................................................................................ iv
+ABSTRACT ........................................................................................................... v
+KATA PENGANTAR .......................................................................................... vi
+DAFTAR ISI ........................................................................................................ vii
+DAFTAR GAMBAR ............................................................................................ ix
+DAFTAR TABEL ................................................................................................. x
+DAFTAR LAMPIRAN ........................................................................................ xi
+BAB I PENDAHULUAN ................................................................................... 12
+1.1.
+
+Latar Belakang ...................................................................................... 12
+
+1.2.
+
+Rumusan Masalah ................................................................................. 15
+
+1.3.
+
+Tujuan Penelitian .................................................................................. 16
+
+1.4.
+
+Manfaat Penelitian ................................................................................ 16
+
+1.5.
+
+Batasan Masalah.................................................................................... 17
+
+1.6.
+
+Jadwal Penelitian ................................................................................... 18
+
+BAB II LANDASAN TEORI ............................................................................. 19
+2.1.
+
+Tinjaun Pustaka ..................................................................................... 19
+
+2.2.
+
+Landasan Teori ...................................................................................... 31
+
+2.2.1. Diabetes Mellitus Tipe 2 ..................................................................... 31
+2.2.2. Machine Learning dan Klasifikasi ...................................................... 32
+2.2.3. Normalisasi Data ................................................................................. 33
+2.2.4. Logistic Regression ............................................................................. 34
+vii
+
+2.2.5. SVM .................................................................................................... 35
+2.2.6. KNN .................................................................................................... 36
+2.2.7. Gradient Boosting ............................................................................... 36
+2.2.8. XGBoost.............................................................................................. 37
+2.2.9. LightGBM ........................................................................................... 38
+2.2.10. Optuna Framework ........................................................................... 38
+2.2.11. Metrik Evaluasi ................................................................................. 40
+2.2.12. Explainable AI .................................................................................. 43
+BAB III METODE PENELITIAN .................................................................... 45
+3.1.
+
+Subjek dan Objek Penelitian ................................................................. 45
+
+3.2.
+
+Alat dan Bahan Penelitian ..................................................................... 46
+
+3.2.1. Alat Penelitian ..................................................................................... 46
+3.2.2. Bahan Penelitian ................................................................................. 46
+3.3.
+
+Diagram Alir Penelitian ........................................................................ 47
+
+3.3.1. OBTAIN (Perolehan Data) ................................................................. 48
+3.3.2. SCRUB (Pembersihan dan Penyiapan Data) ...................................... 49
+3.3.3. EXPLORE (Eksplorasi Data).............................................................. 51
+3.3.4. MODEL (Pemodelan) ......................................................................... 53
+3.3.5. INTERPRET (Evaluasi dan Interpretasi Model) ................................ 57
+DAFTAR PUSTAKA .......................................................................................... 60
+LAMPIRAN ......................................................................................................... 65
+
+viii
+
+DAFTAR GAMBAR
+Gambar 2. 1 Perbandingan Karakteristik Algoritma Machine learning ............... 33
+Gambar 2. 2 Confusion matrix dan Performance Metrics..................................... 40
+Gambar 2. 3 ROC Curve dan AUC ....................................................................... 42
+Gambar 2. 4 SHAP Visualizations ........................................................................ 43
+Gambar 3. 1 Diagram Alir Penelitian ................................................................... 47
+Gambar 3. 2 Machine learning Pipeline untuk Prediksi Diabetes ........................ 54
+
+ix
+
+DAFTAR TABEL
+Tabel 1. 1 Jadwal Kegiatan ................................................................................... 18
+Tabel 2. 1 Ringkasan Penelitian Terdahulu .......................................................... 22
+Tabel 3. 1 Struktur Dataset.................................................................................... 48
+
+x
+
+DAFTAR LAMPIRAN
+Lampiran 1. Deskripsi Dataset patient.csv ........................................................... 62
+Lampiran 2. Deskripsi Dataset diagnosis.csv ...................................................... 62
+Lampiran 3. Deskripsi Dataset medication.csv .................................................... 64
+Lampiran 4. Deskripsi Dataset transcript.csv ...................................................... 64
+
+xi
+
+BAB I
+PENDAHULUAN
+1.1.
+
+Latar Belakang
+Perkembangan teknologi machine learning dalam beberapa tahun terakhir
+
+semakin pesat dan sudah banyak digunakan di berbagai bidang, seperti industri,
+keuangan, dan juga kesehatan. Machine learning memungkinkan komputer untuk
+mempelajari pola dari data dan menghasilkan prediksi tanpa harus diprogram secara
+detail. Dengan semakin banyaknya data yang tersedia serta meningkatnya
+kemampuan komputasi, penggunaan machine learning menjadi semakin luas dan
+berkembang [1].
+Di bidang kesehatan, machine learning mulai banyak dimanfaatkan untuk
+membantu proses diagnosis dan prediksi penyakit. Hal ini karena machine learning
+mampu mengolah data dalam jumlah besar dan menemukan pola yang sulit dikenali
+secara manual [2]. Salah satu jenis data yang sering digunakan adalah data rekam
+medis elektronik atau Electronic Health Records (EHR). Data ini berisi berbagai
+informasi pasien, seperti data demografi, riwayat penyakit, hasil pemeriksaan, dan
+data klinis lainnya [3]. Dengan memanfaatkan data tersebut, model machine
+learning dapat digunakan untuk membantu memprediksi risiko suatu penyakit
+secara lebih cepat dan efisien [4], [5].
+Salah satu penyakit yang banyak diteliti menggunakan machine learning
+adalah Diabetes Mellitus Tipe 2 (T2DM). T2DM merupakan penyakit kronis yang
+terjadi akibat gangguan metabolisme glukosa dalam tubuh, yang disebabkan oleh
+resistensi insulin dan penurunan fungsi sel beta pankreas [6]. Berdasarkan data dari
+World Health Organization, jumlah penderita diabetes terus meningkat dari tahun
+ke tahun dan telah mencapai lebih dari 830 juta orang di seluruh dunia [7]. Penyakit
+ini juga dapat menimbulkan berbagai komplikasi serius, seperti penyakit jantung,
+gangguan ginjal, dan kerusakan saraf [8]. Selain itu, beberapa penelitian juga
+menunjukkan adanya faktor risiko lain yang berkaitan dengan kondisi metabolik
+tubuh [9].
+
+12
+
+Deteksi dini terhadap T2DM sangat penting agar penyakit dapat ditangani
+lebih cepat dan risiko komplikasi dapat dikurangi. Namun, metode konvensional
+seperti pemeriksaan kadar gula darah masih memiliki beberapa keterbatasan,
+misalnya membutuhkan biaya, waktu, dan akses ke fasilitas kesehatan. Selain itu,
+pemeriksaan tersebut biasanya dilakukan setelah muncul gejala, sehingga kurang
+efektif untuk deteksi dini. Oleh karena itu, diperlukan metode lain yang lebih cepat
+dan efisien untuk memprediksi risiko diabetes.
+Berbagai algoritma machine learning telah digunakan untuk memprediksi
+diabetes. Beberapa algoritma baseline seperti Logistic Regression, Support Vector
+Machine (SVM), dan K-Nearest Neighbors (KNN) merupakan metode klasifikasi
+yang relatif sederhana dan sering digunakan sebagai model awal [10]. Logistic
+Regression merupakan model linear berbasis probabilitas, SVM bekerja dengan
+mencari hyperplane optimal, sedangkan KNN melakukan klasifikasi berbasis jarak
+[11]. Penelitian yang dilakukan oleh Kurniawan et al. [10] membandingkan ketiga
+algoritma tersebut dan menunjukkan bahwa Logistic Regression mencapai akurasi
+sekitar 75%, SVM sebesar 74%, dan KNN sebesar 71% pada dataset diabetes. Hasil
+tersebut menunjukkan bahwa algoritma baseline cukup baik sebagai model awal,
+namun memiliki keterbatasan dalam menangani hubungan yang kompleks dan nonlinear pada data kesehatan.
+Untuk mengatasi hal tersebut, digunakan metode yang lebih kompleks seperti
+boosting, yaitu Gradient Boosting, XGBoost, dan LightGBM. Metode boosting
+merupakan teknik ensemble learning yang membangun model secara bertahap
+dengan memperbaiki kesalahan model sebelumnya [12]. Gradient Boosting bekerja
+dengan meminimalkan fungsi loss secara iteratif, XGBoost merupakan
+pengembangan dengan tambahan regularisasi dan efisiensi komputasi, sedangkan
+LightGBM menggunakan pendekatan leaf-wise untuk meningkatkan kecepatan
+pelatihan [13]. Penelitian oleh Tuppad et al. [14] menunjukkan bahwa LightGBM
+mampu mencapai akurasi 95.20%, lebih tinggi dibandingkan Logistic Regression
+yang hanya mencapai 75.20%. Selain itu, penelitian oleh Hasan et al. [15]
+menunjukkan bahwa model berbasis XGBoost mampu mencapai akurasi 92.50%
+dengan ROC-AUC sebesar 0.975. Penelitian lain oleh Elseddawy et al. [16] juga
+13
+
+menunjukkan bahwa Gradient Boosting dapat mencapai akurasi hingga 97%. Hasil
+ini menunjukkan bahwa metode boosting memiliki performa yang lebih baik
+dibandingkan algoritma baseline dalam menangani data yang kompleks.
+Meskipun demikian, algoritma baseline memiliki kelemahan dalam
+menangani hubungan non-linear dan cenderung bias pada data yang tidak seimbang
+[10]. Di sisi lain, metode boosting juga memiliki tantangan, seperti risiko overfitting
+dan sensitivitas terhadap pemilihan hyperparameter [17]. Pemilihan parameter
+yang tidak tepat dapat menyebabkan model tidak optimal atau bahkan menurun
+performanya. Oleh karena itu, proses hyperparameter tuning menjadi sangat
+penting untuk meningkatkan performa model. Penelitian oleh Peng et al. [17]
+menunjukkan bahwa penggunaan Optuna sebagai metode optimasi hyperparameter
+dapat meningkatkan akurasi model dari sekitar 85% menjadi 95.45%. Selain itu,
+penelitian oleh Maryanti et al. [18] juga menunjukkan bahwa penggunaan Optuna
+mampu menghasilkan akurasi sebesar 93.27% pada kasus klasifikasi lainnya. Hal
+ini menunjukkan bahwa Optuna lebih efektif dibandingkan metode konvensional
+seperti grid search karena mampu mengeksplorasi ruang parameter secara lebih
+efisien.
+Beberapa penelitian sebelumnya telah menunjukkan bahwa machine learning
+dapat digunakan untuk memprediksi diabetes dengan hasil yang cukup baik.
+Penelitian oleh Siana et al. [19] menunjukkan bahwa model berbasis kecerdasan
+buatan mampu memprediksi risiko diabetes secara efektif dengan akurasi tertinggi
+79%. Penelitian oleh Haixiang et al. [20] juga berhasil memprediksi komplikasi
+diabetes berupa diabetic foot menggunakan model machine learning dengan
+akurasi sebesar 95% dan sensitivitas sebesar 92.86%. Selain itu, penelitian oleh
+Nayan et al. [21] menunjukkan bahwa model ensemble mampu mencapai AUC
+sebesar 0.868, lebih tinggi dibandingkan model tunggal. Penelitian oleh El Massari
+et al. [22] juga menunjukkan bahwa penggunaan feature engineering dan optimasi
+model mampu meningkatkan akurasi hingga 94%.
+Berdasarkan berbagai penelitian tersebut, terlihat bahwa penggunaan
+algoritma boosting dan teknik optimasi memberikan peningkatan performa yang
+signifikan. Namun, penelitian terdahulu menggunakan pendekatan hyperparameter
+14
+
+tuning yang beragam, seperti grid search, random search, maupun tanpa tuning
+sistematis [10], [22]. Sementara itu, penggunaan Optuna sebagai metode optimasi
+yang lebih efisien masih belum banyak diterapkan secara komprehensif pada kasus
+prediksi diabetes, terutama dalam kombinasi dengan perbandingan algoritma
+baseline dan boosting secara sistematis.
+Di sisi lain, dalam bidang kesehatan, hasil prediksi tidak hanya harus akurat
+tetapi juga harus dapat dipahami. Oleh karena itu, diperlukan pendekatan
+Explainable Artificial Intelligence (XAI) untuk membantu menjelaskan hasil model
+[23]. Salah satu metode yang sering digunakan adalah SHAP, yang dapat
+menunjukkan kontribusi masing-masing fitur terhadap hasil prediksi [15], [24].
+Namun, metode ini juga memiliki beberapa keterbatasan yang perlu diperhatikan
+dalam interpretasi hasil [25].
+Berdasarkan permasalahan tersebut, penelitian ini akan dilakukan untuk
+membandingkan performa algoritma machine learning baseline dan metode
+boosting dalam memprediksi Diabetes Mellitus Tipe 2 menggunakan data EHR.
+Selain itu, penelitian ini juga menerapkan hyperparameter tuning untuk
+meningkatkan performa model. Setelah itu, model terbaik akan dianalisis
+menggunakan metode SHAP untuk melihat interpretasi hasilnya. Model yang
+dihasilkan juga akan dibangun dalam bentuk sistem sederhana agar dapat
+digunakan sebagai pendukung pengambilan keputusan. Dengan demikian,
+diharapkan penelitian ini dapat menghasilkan model yang tidak hanya akurat, tetapi
+juga dapat dipahami dan digunakan dalam bidang kesehatan.
+1.2.
+
+Rumusan Masalah
+Berdasarkan latar belakang yang telah diuraikan, maka rumusan masalah
+
+dalam penelitian ini adalah sebagai berikut:
+1. Bagaimana membangun model machine learning untuk prediksi Diabetes
+Mellitus Tipe 2 menggunakan data EHR dengan menerapkan algoritma
+baseline dan algoritma berbasis boosting?
+
+15
+
+2. Bagaimana perbandingan performa antara algoritma machine learning
+tradisional sebagai model baseline dan algoritma berbasis boosting dalam
+memprediksi Diabetes Mellitus Tipe 2 berdasarkan data EHR?
+3. Bagaimana
+
+pengaruh
+
+penerapan
+
+hyperparameter
+
+tuning
+
+terhadap
+
+peningkatan performa model machine learning, baik pada algoritma
+tradisional maupun algoritma berbasis boosting?
+4. Algoritma machine learning apa yang memberikan performa terbaik dalam
+prediksi Diabetes Mellitus Tipe 2, serta bagaimana hasil prediksi dari model
+terbaik tersebut dapat diinterpretasikan menggunakan pendekatan XAI
+untuk mengidentifikasi fitur-fitur yang berpengaruh?
+1.3.
+
+Tujuan Penelitian
+Berdasarkan rumusan masalah yang telah ditetapkan, maka tujuan dari
+
+penelitian ini adalah sebagai berikut:
+1. Membangun model machine learning untuk prediksi Diabetes Mellitus
+Tipe 2 menggunakan data EHR dengan menerapkan algoritma baseline
+dan algoritma berbasis boosting.
+2. Menganalisis perbandingan performa antara algoritma machine learning
+tradisional sebagai model baseline dan algoritma berbasis boosting dalam
+memprediksi Diabetes Mellitus Tipe 2 berdasarkan data EHR.
+3. Menganalisis pengaruh penerapan hyperparameter tuning terhadap
+peningkatan performa model machine learning, baik pada algoritma
+tradisional maupun algoritma berbasis boosting.
+4. Menentukan algoritma machine learning yang memberikan performa
+terbaik dalam prediksi Diabetes Mellitus Tipe 2 serta menginterpretasikan
+hasil prediksi model menggunakan pendekatan Explainable AI untuk
+mengidentifikasi fitur-fitur yang berpengaruh.
+1.4.
+
+Manfaat Penelitian
+Manfaat penelitian ini menjelaskan kontribusi yang dapat diperoleh apabila
+
+permasalahan dalam penelitian ini berhasil diselesaikan. Manfaat tersebut ditujukan
+
+16
+
+bagi pihak-pihak yang berkaitan dengan pemanfaatan hasil penelitian, baik secara
+akademis maupun praktis.
+Penelitian ini diharapkan dapat memberikan manfaat bagi berbagai pihak sebagai
+berikut:
+1. Bagi tenaga medis dan praktisi kesehatan
+Hasil penelitian ini diharapkan dapat membantu dalam proses pengambilan
+keputusan klinis, khususnya dalam mendeteksi risiko Diabetes Mellitus
+Tipe 2 secara lebih dini melalui pemanfaatan model prediksi berbasis
+machine learning yang lebih akurat dan objektif.
+2. Bagi pengembang sistem dan organisasi di bidang kesehatan
+Penelitian ini dapat menjadi acuan dalam pengembangan sistem pendukung
+keputusan berbasis data EHR, sehingga dapat meningkatkan efisiensi dan
+efektivitas dalam pengelolaan data pasien serta prediksi risiko penyakit.
+3. Bagi peneliti dan akademisi
+Penelitian ini diharapkan dapat menjadi referensi dalam pengembangan
+penelitian selanjutnya, khususnya yang berkaitan dengan perbandingan
+algoritma machine learning tradisional dan metode berbasis boosting,
+penerapan
+
+hyperparameter tuning, serta penggunaan
+
+XAI dalam
+
+meningkatkan interpretabilitas model prediksi.
+1.5.
+
+Batasan Masalah
+Agar penelitian ini lebih terarah dan sesuai dengan tujuan yang ditetapkan,
+
+maka batasan masalah dalam penelitian ini adalah sebagai berikut:
+1. Penelitian ini menggunakan data EHR yang berfokus pada data terstruktur,
+tanpa melibatkan data citra medis maupun data tidak terstruktur lainnya.
+2. Penelitian difokuskan pada prediksi Diabetes Mellitus Tipe 2 sebagai
+variabel target, tanpa membahas jenis diabetes lain maupun penyakit
+penyerta secara mendalam.
+3. Model yang digunakan terbatas pada beberapa algoritma machine learning
+tradisional sebagai baseline dan algoritma berbasis boosting sebagai
+
+17
+
+pembanding utama, dengan peningkatan performa melalui hyperparameter
+tuning.
+4. Evaluasi model dilakukan menggunakan metrik klasifikasi, serta
+interpretasi hasil prediksi dilakukan menggunakan pendekatan XAI dengan
+metode SHAP yang diterapkan pada model dengan performa terbaik untuk
+mengidentifikasi fitur-fitur yang berpengaruh.
+1.6.
+
+Jadwal Penelitian
+Untuk merealisasikan tujuan penelitian dan rencana kegiatan yang telah
+
+disusun, diperlukan penjadwalan yang sistematis agar setiap tahapan dapat
+terlaksana secara efektif dan efisien. Jadwal kegiatan berikut ini mencakup
+keseluruhan proses pelaksanaan Tugas Akhir, mulai dari tahap persiapan hingga
+penyusunan laporan akhir:
+Tabel 1. 1 Jadwal Kegiatan
+
+Kegiatan
+
+Bulan
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Kajian Pustaka
+Pengembangan
+Metadologi
+Pengumpulan
+Data
+Implementasi
+Model
+Uji Coba
+Analisa Hasil
+Penulisan
+Laporan
+
+18
+
+BAB II
+LANDASAN TEORI
+2.1.
+
+Tinjaun Pustaka
+Penelitian terkait prediksi Diabetes Mellitus Tipe 2 (T2DM) menggunakan
+
+machine learning telah banyak dilakukan dengan berbagai pendekatan. Secara
+umum, penelitian-penelitian tersebut berfokus pada peningkatan akurasi model,
+pemilihan algoritma yang tepat, serta bagaimana model dapat digunakan secara
+lebih efektif dalam konteks kesehatan.
+Beberapa penelitian awal fokus pada perbandingan algoritma machine
+learning. Penelitian [10] membandingkan Logistic Regression, Random Forest,
+Support Vector Machine (SVM), dan K-Nearest Neighbors (KNN) dengan
+menerapkan SMOTE untuk mengatasi ketidakseimbangan data. Hasilnya
+menunjukkan bahwa Random Forest memiliki performa terbaik dengan F1-score
+sebesar 96,92% dan AUC 99,70%. Meskipun SVM menunjukkan performa yang
+baik, waktu komputasi yang lebih besar menjadi kendala. Temuan ini
+mengindikasikan bahwa metode ensemble lebih unggul dibandingkan dengan
+algoritma tunggal. Hal ini juga diperkuat oleh penelitian [14] yang membandingkan
+beberapa algoritma seperti Logistic Regression, Decision Tree, Random Forest,
+Gradient Boosting, XGBoost, dan LightGBM. Hasil penelitian menunjukkan bahwa
+LightGBM memberikan akurasi tertinggi sebesar 95,20%. Temuan ini semakin
+memperkuat bahwa algoritma berbasis boosting mampu menangani data yang
+kompleks dengan lebih baik.
+Selain pemilihan algoritma, optimasi model juga berperan penting dalam
+meningkatkan performa. Penelitian [22] menunjukkan bahwa penggunaan feature
+engineering dan hyperparameter tuning dapat meningkatkan performa model
+secara signifikan. Dengan menggunakan RFECV dan GridSearchCV, model
+XGBoost berhasil mencapai akurasi sebesar 94%, lebih tinggi dibandingkan model
+lainnya. Hal ini menunjukkan bahwa kualitas fitur dan parameter sangat
+berpengaruh terhadap hasil prediksi. Penggunaan metode ensemble juga banyak
+diteliti karena kemampuannya dalam meningkatkan performa model. Penelitian
+19
+
+[26] menunjukkan bahwa metode ensemble seperti Bagging, Boosting, dan Stacking
+mampu mencapai akurasi hingga 97%, lebih tinggi dibandingkan model individual.
+Hal ini terjadi karena ensemble menggabungkan kelebihan dari beberapa model
+sehingga menghasilkan prediksi yang lebih stabil.
+Penelitian lain [27] mengombinasikan feature selection dengan algoritma
+boosting seperti LightGBM. Hasilnya menunjukkan akurasi sebesar 85,16% dan
+F1-score sebesar 85,41%, dengan jumlah fitur yang lebih sedikit serta waktu
+pelatihan yang lebih efisien. Hal ini menunjukkan bahwa pemilihan fitur yang tepat
+dapat meningkatkan efisiensi tanpa mengurangi performa model. Dalam hal
+optimasi model, penelitian [28] mengembangkan metode berbasis ensemble yang
+mampu mencapai akurasi hingga 99%, dengan precision 98,5% dan recall 99%.
+Hasil ini menunjukkan bahwa kombinasi antara optimasi parameter dan ensemble
+learning dapat menghasilkan model dengan performa yang sangat tinggi.
+Selain itu, permasalahan ketidakseimbangan data juga menjadi perhatian
+dalam beberapa penelitian. Penelitian [29] mengombinasikan SMOTE dan Near
+Miss serta menerapkan Explainable AI. Hasilnya menunjukkan bahwa model
+XGBoost dengan SMOTE mampu mencapai akurasi 99% dan F1-score 1,00.
+Penelitian [16] juga menunjukkan bahwa penggunaan SMOTE dapat meningkatkan
+performa model, dengan nilai AUC mencapai 0,89 dan akurasi sebesar 90,2%. Hal
+ini menunjukkan bahwa preprocessing data memiliki peran penting dalam
+meningkatkan kualitas model.
+Di sisi lain, interpretabilitas model juga menjadi aspek penting, terutama
+dalam bidang kesehatan. Penelitian [30] menunjukkan bahwa pendekatan
+interpretable machine learning dapat membantu mengidentifikasi faktor-faktor
+penting dalam diagnosis diabetes. Sementara itu, penelitian [15] menggabungkan
+AutoML dan Explainable AI untuk menghasilkan model yang tidak hanya akurat
+tetapi juga transparan.
+Secara keseluruhan, berbagai penelitian ini menunjukkan bahwa machine
+learning memiliki potensi besar dalam prediksi diabetes. Namun, sebagian besar
+penelitian masih berfokus pada satu aspek tertentu, seperti pemilihan algoritma,
+optimasi model, atau interpretabilitas. Selain itu, perbandingan antara algoritma
+20
+
+baseline dan boosting dalam satu kerangka yang sama masih terbatas. Oleh karena
+itu, penelitian ini bertujuan untuk menggabungkan pendekatan-pendekatan
+tersebut, yaitu perbandingan algoritma, hyperparameter tuning menggunakan
+Optuna, serta penerapan Explainable AI, untuk menghasilkan model yang lebih
+akurat dan mudah dipahami.
+
+............
+
+21
+
+Tabel 2. 1 Ringkasan Penelitian Terdahulu
+
+No.
+
+1
+
+Judul dan Tahun
+
+Pembahasan
+
+Penelitian ini menunjukkan bahwa
+Random Forest mampu mencapai
+F1-Score sebesar 96.92% dengan
+AUC 99.70% pada dataset
+Comparison of
+berukuran 100 ribu data, sehingga
+Logistic
+melampaui performa Logistic
+Regression,
+Regression yang sekitar 75%,
+Random Forest,
+SVM sebesar 74.4%, dan KNN
+Support Vector
+sebesar 70.8%. Penerapan
+Machine (SVM)
+SMOTE berhasil
+and K-Nearest
+menyeimbangkan data dengan
+Neighbor (KNN)
+meningkatkan jumlah sampel
+Algorithms in
+diabetes dari 15% menjadi
+Diabetes
+distribusi seimbang 85K:85K.
+Prediction, 2025
+Hasil ini memberikan bukti
+[10]
+empiris bahwa metode ensemble
+seperti Random Forest lebih
+unggul dibandingkan algoritma
+sederhana.
+
+Metode
+
+Logistic
+Regression,
+Random Forest,
+SVM, K-Nearest
+Neighbors,
+80:20 train-test
+split, 5-fold
+stratified crossvalidation,
+SMOTE untuk
+class balancing
+
+Kelebihan dan
+Kekurangan
+
+Kelebihan: Evaluasi
+sistematis 4 algoritma
+klasik pada dataset besar
+(100K records), SMOTE
+effectiveness untuk class
+imbalance terbukti
+empiris, RF konsistensi
+tinggi.
+Kekurangan: Tanpa
+hyperparameter tuning
+sistematis, hanya default
+parameters, tanpa
+XAI/interpretability
+analysis, feature
+importance analysis
+absent, tidak ada crossdataset validation.
+
+Perbedaan Penelitian
+Penelitian ini tidak
+hanya
+membandingkan
+algoritma baseline,
+tetapi juga
+melakukan
+perbandingan
+eksplisit antara
+algoritma baseline
+dan algoritma
+berbasis boosting
+dengan total enam
+algoritma. Selain itu,
+penelitian ini
+menerapkan
+hyperparameter
+tuning secara
+sistematis
+menggunakan
+Optuna serta
+mengintegrasikan
+22
+
+No.
+
+Judul dan Tahun
+
+Pembahasan
+
+Metode
+
+Kelebihan dan
+Kekurangan
+
+Perbedaan Penelitian
+pendekatan
+Explainable AI
+menggunakan SHAP
+untuk meningkatkan
+interpretabilitas
+model.
+
+2
+
+Penelitian ini menunjukkan bahwa
+kombinasi XGBoost dengan
+RFECV mampu mencapai akurasi
+Diabetes
+sebesar 94%. Teknik RFECV
+Prediction
+berhasil mengidentifikasi lima
+Using Machine
+fitur utama, yaitu Glucose, BMI,
+Learning with
+Age, DPF, dan Skin Thickness.
+Feature
+Selain itu, proses feature
+Engineering and engineering terbukti mampu
+Hyperparameter meningkatkan performa model
+Tuning, 2024
+sebesar 2–3% dibandingkan
+[22]
+baseline. Penelitian ini
+menegaskan pentingnya
+kombinasi antara feature
+engineering dan tuning parameter.
+
+5 FSA
+techniques
+(SelectKBest,
+RFE, RFECV,
+Forward/Backw
+ard), 5 boosting
+algorithms (RF,
+GB, XGB,
+LGBM,
+CatBoost),
+GridSearchCV
+tuning, PIDD
+dataset only
+
+Kelebihan:
+Komprehensif feature
+selection comparison,
+detail hyperparameter
+optimization, XGBoost
+superiority established,
+practical optimization
+guidance.
+Kekurangan: Single
+dataset (PIMA) hanya,
+representasi demografis
+terbatas, tanpa XAI
+untuk understanding
+decision mechanisms,
+tanpa baseline
+
+Penelitian ini
+menambahkan
+pendekatan AutoML
+melalui Optuna
+untuk eksplorasi
+hyperparameter
+yang lebih efisien.
+Selain itu, penelitian
+ini juga mencakup
+perbandingan
+algoritma baseline
+serta
+mengintegrasikan
+interpretabilitas
+menggunakan SHAP
+23
+
+No.
+
+Judul dan Tahun
+
+Pembahasan
+
+Metode
+
+Kelebihan dan
+Kekurangan
+algorithms comparison,
+akurasi 94% masih
+below potential dengan
+deeper tuning.
+
+3
+
+Evaluasi Model
+Ensemble
+Learning pada
+Identifikasi
+Faktor Risiko
+Diabetes
+Mellitus, 2025
+[26]
+
+Hasil penelitian ini menunjukkan
+bahwa Gradient Boosting
+mencapai nilai R² sebesar 0.65
+dan seluruh metode ensemble
+mampu mencapai akurasi sekitar
+97%. Selain itu, ditemukan bahwa
+Naïve Bayes cenderung
+menghasilkan prediksi berlebih
+dengan recall tinggi namun
+precision rendah, sedangkan
+Logistic Regression dan SVM
+bersifat lebih konservatif dengan
+recall rendah dan precision tinggi.
+Temuan ini menunjukkan adanya
+trade-off antara sensitivity dan
+specificity yang sangat penting
+dalam konteks klinis.
+
+5 base learners
+(NB, LR, SVM,
+DT, KNN) + 4
+ensemble
+methods
+(Bagging,
+Boosting,
+Stacking,
+Voting), KNN
+Imputer,
+SMOTE
+balancing,
+PIMA dataset
+
+Perbedaan Penelitian
+untuk memahami
+hubungan antar fitur.
+
+Penelitian ini
+menambahkan
+perbandingan
+eksplisit antara
+algoritma baseline
+dan boosting, serta
+memperluas evaluasi
+pada dataset yang
+lebih beragam.
+Kekurangan: Single
+Selain itu, penelitian
+dataset (PIDD
+specificity), representasi ini juga memberikan
+interpretasi hasil
+demografis terbatas,
+tanpa feature importance model menggunakan
+SHAP untuk
+detail, clinical
+memahami
+interpretability
+kontribusi fitur
+integration minimal,
+secara lebih
+tidak ada baselinemendalam.
+Kelebihan:
+Komprehensif ensemble
+comparison, sensitivityspecificity trade-off
+analysis valuable untuk
+clinical, performa robust
+~97%.
+
+24
+
+No.
+
+Judul dan Tahun
+
+Pembahasan
+
+Metode
+
+Kelebihan dan
+Kekurangan
+
+Perbedaan Penelitian
+
+boosting explicit
+comparison.
+
+4
+
+Penelitian ini menunjukkan bahwa
+LightGBM yang dikombinasikan
+dengan Boruta mampu mencapai
+akurasi 85.16%, F1-score
+85.41%, dan AUC sebesar 0.9052
+Diabetes
+pada dataset PIDD. Selain itu,
+Prediction
+terjadi penurunan waktu pelatihan
+Using Feature
+sebesar 54.96%, dari 0.0564 detik
+Selection
+menjadi 0.0254 detik, dengan
+Algorithms and hanya menggunakan 5 dari 8 fitur.
+Boosting-Based Validasi eksternal pada dataset
+Machine
+DiaHealth menunjukkan performa
+Learning
+yang sangat tinggi dengan akurasi
+Classifiers, 2025 99.39% dan recall 100%,
+[27]
+sehingga menunjukkan
+kemampuan generalisasi yang
+baik. Penelitian ini juga
+membuktikan bahwa pengurangan
+fitur dan penggunaan XAI dapat
+berjalan secara bersamaan.
+
+Kelebihan: FSA + XAI
+integration proven,
+strong external
+5 FSA (RFE,
+GWO, PSO, GA, validation (99.39%
+DiaHealth),
+Boruta), 2
+boosting (XGB, computational efficiency
+improved, feature
+LGBM), 5-fold
+CV, 70:30 split, reduction benefits
+established.
+SHAP for
+feature
+Kekurangan: Limited to
+importance,
+2 datasets, SHAP only
+PIDD +
+(depth minimal), tidak
+DiaHealth
+ada baseline
+validation
+comparison, no local
+patient-level
+interpretation.
+
+Penelitian ini tetap
+menggunakan SHAP
+namun
+dikombinasikan
+dengan
+perbandingan
+algoritma baseline
+dan boosting. Selain
+itu, penelitian ini
+juga menekankan
+pada evaluasi model
+yang lebih sistematis
+serta pengembangan
+model yang lebih
+aplikatif.
+
+25
+
+No.
+
+5
+
+6
+
+Judul dan Tahun
+
+An Optimized
+Diabetes
+Mellitus
+Detection Model
+for Improved
+Prediction of
+Accuracy and
+Clinical
+DecisionMaking, 2024
+[28]
+
+SMOTE
+Oversampling
+and Near Miss
+Undersampling
+
+Pembahasan
+
+Metode
+
+Kelebihan dan
+Kekurangan
+
+Kelebihan: Exceptional
+accuracy (99%),
+Penelitian ini menghasilkan model
+substantial margin vs
+GBM-DRU dengan akurasi 99%,
+baselines, crossprecision 98.5%, dan recall 99%, Gradient
+yang lebih unggul dibandingkan
+Boosting + Data validation robustness
+Random Forest (97%), J48
+Reduction Unit, (95%).
+(95%), SVM (80%), XGBoost
+aggressive
+Kekurangan: Dataset
+(85%), Naïve Bayes (70%), dan
+feature
+undocumented
+Soft Voting (79%). Selain itu,
+engineering,
+(reproducibility
+hasil cross-validation
+ensemble
+concern), tanpa XAI
+menunjukkan stabilitas performa
+stacking, 10-fold untuk understanding,
+sebesar 95%. Meskipun demikian, CV,
+potentially overfitted
+performa yang sangat tinggi ini
+undocumented
+(limited external
+tidak diikuti dengan transparansi
+dataset specifics validation),
+model maupun interpretasi klinis
+generalizability unclear,
+terhadap hasil prediksi.
+no feature
+Penelitian ini menunjukkan bahwa
+penggunaan XGBoost dengan
+SMOTE mampu mencapai akurasi
+99% dan F1-score sebesar 1.00,
+
+10 ML models,
+SMOTE
+oversampling,
+Near Miss
+
+interpretation.
+Kelebihan: Perfect F1score (1.00), XAIadoption link
+demonstrated, class
+
+Perbedaan Penelitian
+
+Penelitian ini
+menekankan
+keseimbangan antara
+performa dan
+transparansi model.
+Selain itu, penelitian
+ini menggunakan
+pendekatan optimasi
+hyperparameter
+serta evaluasi yang
+lebih sistematis
+untuk memastikan
+model tidak
+overfitting.
+
+Penelitian ini
+mengintegrasikan
+optimasi model
+menggunakan
+26
+
+No.
+
+7
+
+Kelebihan dan
+Kekurangan
+
+Judul dan Tahun
+
+Pembahasan
+
+Metode
+
+Based Diabetes
+Diagnosis from
+Imbalanced
+Dataset with
+XAI
+Visualization,
+2023 [29]
+
+yang menunjukkan keseimbangan
+sempurna antara precision dan
+recall. Integrasi metode XAI
+seperti SHAP dan LIME juga
+terbukti meningkatkan
+kepercayaan pengguna dan
+keandalan model dalam konteks
+klinis. Temuan ini menegaskan
+bahwa transparansi model
+merupakan faktor penting dalam
+penerapan machine learning di
+bidang kesehatan.
+
+undersampling,
+XAI techniques
+(SHAP, LIME),
+imbalanced
+diabetes dataset
+
+imbalance mitigation
+proven, clinical
+relevance emphasized.
+
+SMOTE +
+Tomek-links +
+ANN, feature
+ranking (odds
+ratio, Boruta,
+varImp), costsensitive
+learning,
+
+Kelebihan: Multiple
+imbalance strategies
+compared, femalespecific risk factors
+identified, actionable
+clinical insights.
+
+Penelitian ini menunjukkan bahwa
+model ANN dengan SMOTE
+Predictive
+mampu mencapai akurasi 90.2%
+Analysis of
+dan AUC sebesar 0.89. SMOTE
+Diabetes-Risk
+terbukti efektif dalam menangani
+with Class
+ketidakseimbangan data,
+Imbalance, 2022
+sementara teknik Tomek-links
+[16]
+memberikan pengaruh yang
+minimal. Selain itu, ditemukan
+
+Kekurangan: Limited
+algorithm comparison,
+minimal hyperparameter
+optimization,
+generalization testing
+unclear, tidak ada multidataset validation,
+feature interactions not
+explored.
+
+Kekurangan: Single
+gender (female only),
+
+Perbedaan Penelitian
+Optuna serta
+menerapkan SHAP
+sebagai metode
+interpretasi utama.
+Selain itu, penelitian
+ini juga dirancang
+untuk menghasilkan
+model yang lebih
+stabil melalui
+evaluasi yang
+sistematis.
+
+Penelitian ini
+memperluas
+pendekatan pada
+perbandingan
+algoritma baseline
+dan boosting. Selain
+itu, penelitian ini
+juga
+mengintegrasikan
+27
+
+No.
+
+8
+
+Judul dan Tahun
+
+Pembahasan
+
+Metode
+
+bahwa resistensi insulin dan BMI
+yang tinggi merupakan faktor
+risiko utama diabetes, sehingga
+memberikan insight klinis yang
+dapat ditindaklanjuti.
+
+female-specific
+dataset
+
+Penelitian ini menunjukkan bahwa
+LightGBM mencapai akurasi
+tertinggi sebesar 95.20%, diikuti
+oleh Extra Trees (94.60%),
+Prediction of
+Random Forest (94.80%),
+Type-2 Diabetes Decision Tree (94.40%), Gradient
+Mellitus Disease Boosting (94.10%), XGBoost
+Using Machine
+(83.30%), dan Logistic Regression
+Learning
+(75.20%). Perbedaan performa
+Classifiers and
+hingga 20% menunjukkan bahwa
+Techniques,
+pemilihan algoritma memiliki
+2022 [14]
+dampak signifikan terhadap hasil
+prediksi. Selain itu, algoritma
+berbasis tree ensemble secara
+konsisten mengungguli model
+linear.
+
+7 algorithms
+(LR, XGB, GB,
+DT, ET, RF,
+LGBM), PIDD
+dataset, 80:20
+split, basic
+evaluation
+metrics only
+
+Kelebihan dan
+Kekurangan
+
+Perbedaan Penelitian
+
+small dataset, tanpa
+systematic baselineboosting comparison,
+tanpa feature interaction
+exploration, limited
+generalizability.
+
+interpretasi model
+untuk memberikan
+pemahaman yang
+lebih mendalam
+terhadap faktor
+risiko diabetes.
+
+Kelebihan:
+Comprehensive 7algorithm comparison,
+practical selection
+guidance, LightGBM
+superiority clear.
+
+Penelitian ini
+menambahkan
+proses
+hyperparameter
+tuning menggunakan
+Optuna untuk
+meningkatkan
+performa model.
+Selain itu, penelitian
+ini juga
+mengintegrasikan
+pendekatan
+interpretabilitas
+menggunakan
+SHAP.
+
+Kekurangan: Tanpa
+hyperparameter tuning
+(default parameters
+only), minimal feature
+analysis, tanpa
+XAI/interpretability,
+tanpa cross-validation
+reporting, single dataset
+(PIDD).
+
+28
+
+No.
+
+Judul dan Tahun
+
+9
+
+Unveiling
+diagnostic
+information for
+type 2 diabetes
+through
+interpretable
+machine
+learning, 2025
+[30]
+
+10
+
+Towards
+Transparent
+
+Pembahasan
+
+Metode
+
+Kelebihan dan
+Kekurangan
+
+Kelebihan: Exceptional
+Penelitian ini menunjukkan bahwa
+accuracy (98.79%), both
+model DSpaLaRefiner mampu
+DSpaLaRefiner global & local
+mencapai akurasi 98.79% pada
+interpretability, clinical
+(novel deep
+dataset SWMU, 97.22% pada
+learning dengan feature ranges identified,
+NSMC, dan 97.67% pada data
+strong external
+landmarks +
+gabungan, dengan validasi
+validation (91.90%),
+voting), 39
+eksternal sebesar 91.90%. Model
+handles normal-glucose
+features, 2
+ini mampu mengidentifikasi kasus
+hospital datasets cases.
+T2DM bahkan pada kondisi kadar
+(16K+ patients), Kekurangan: Tabular
+glukosa normal dengan
+intrinsic
+data only (no
+memanfaatkan indikator sekunder.
+information
+images/audio/text),
+Fitur utama yang berpengaruh
+extraction,
+limited to 2 hospitals,
+meliputi GLU, usia, glukosa urin,
+comparative
+binary classification
+HCT, dan HDL-C. Selain itu,
+algorithms
+only, algorithm
+model ini mampu mengekstraksi
+(SVM, RF, MLP, complexity highinformasi intrinsik seperti rentang
+AN)
+reproducibility concern,
+nilai fitur yang relevan secara
+baseline comparison
+klinis.
+implicit.
+Penelitian ini menunjukkan bahwa AutoGluon
+Kelebihan: AutoML
+pendekatan AutoML
+(AutoML),
+automation reduces bias,
+
+Perbedaan Penelitian
+
+Penelitian ini
+menggunakan
+pendekatan yang
+lebih sederhana
+namun tetap efektif
+yaitu menggunakan
+dan membandingkan
+algoritma machine
+learning. Selain itu,
+penelitian ini lebih
+menekankan pada
+kemudahan
+interpretasi dan
+implementasi model
+dalam konteks
+praktis.
+
+Penelitian ini lebih
+berfokus pada
+29
+
+No.
+
+Judul dan Tahun
+
+Pembahasan
+
+Metode
+
+Diabetes
+Prediction:
+Combining
+AutoML and
+Explainable AI
+for Improved
+Clinical
+Insights, 2025
+[15]
+
+menghasilkan rata-rata akurasi
+sebesar 85.01% pada beberapa
+dataset, yaitu PIDD (76.62%),
+Sklearn (78.65%), dan Rural
+African - American (91.36%).
+Analisis SHAP menunjukkan
+bahwa Glucose (0.25) dan BMI
+(0.18) merupakan fitur paling
+berpengaruh. Selain itu, LIME
+memungkinkan interpretasi pada
+tingkat individu, sedangkan
+Counterfactual Analysis
+digunakan untuk mengevaluasi
+skenario hipotetis. Pengembangan
+aplikasi berbasis Streamlit juga
+memungkinkan akses yang lebih
+luas terhadap model.
+
+SHAP, LIME,
+IG, AM, CA,
+LightGBM,
+XGBoost,
+CatBoost, RF as
+base models, 5fold stratified
+CV, 3 datasets,
+Streamlit
+application
+
+Kelebihan dan
+Kekurangan
+comprehensive XAI (5
+techniques), strong
+generalization (3
+datasets), interactive
+clinical tool, balanced
+performanceinterpretability.
+Kekurangan: PIDD
+demographic specificity,
+moderate accuracy
+(76.62% primary) vs
+specialized methods,
+short AutoML training
+may limit exploration.
+
+Perbedaan Penelitian
+perbandingan
+algoritma baseline
+dan boosting serta
+penggunaan Optuna
+untuk optimasi
+model. Selain itu,
+penelitian ini
+menekankan
+penggunaan SHAP
+sebagai metode
+interpretasi utama
+untuk menjaga
+keseimbangan antara
+kompleksitas dan
+pemahaman model.
+
+30
+
+2.2.
+
+Landasan Teori
+Landasan teori ini menjelaskan konsep-konsep dasar yang digunakan dalam
+
+penelitian, meliputi Diabetes Mellitus Tipe 2, machine learning dan klasifikasi,
+algoritma baseline dan boosting, hyperparameter tuning dengan Optuna, evaluasi
+model, serta Explainable AI menggunakan SHAP.
+2.2.1. Diabetes Mellitus Tipe 2
+Diabetes Mellitus Tipe 2 (T2DM) merupakan penyakit metabolik yang
+ditandai dengan tingginya kadar glukosa dalam darah akibat gangguan kerja insulin
+dalam tubuh [6]. T2DM merupakan jenis diabetes yang paling umum, dengan
+proporsi sekitar 90–95% dari seluruh kasus diabetes di dunia [7]. Jumlah penderita
+T2DM terus meningkat dari tahun ke tahun dan menjadi salah satu masalah
+kesehatan global yang serius karena dapat menyebabkan berbagai komplikasi serta
+meningkatkan angka kematian [7], [8]. Secara medis, T2DM terjadi akibat adanya
+resistensi insulin dan penurunan fungsi sel beta pankreas, sehingga tubuh tidak
+mampu mengatur kadar glukosa darah secara optimal [6]. Resistensi insulin
+menyebabkan sel-sel tubuh menjadi kurang responsif terhadap insulin, sedangkan
+disfungsi sel beta pankreas menyebabkan produksi insulin menurun secara
+bertahap. Kombinasi kedua kondisi ini mengakibatkan kadar gula darah tetap tinggi
+dalam jangka waktu yang lama.
+Kondisi tersebut dapat memicu berbagai komplikasi serius seperti penyakit
+kardiovaskular, neuropati, gangguan ginjal, serta gangguan penglihatan [8]. Selain
+itu, T2DM juga dipengaruhi oleh berbagai faktor risiko seperti faktor genetik, usia,
+obesitas, pola makan tidak sehat, dan kurangnya aktivitas fisik [9]. Beberapa
+penelitian juga menunjukkan bahwa biomarker tertentu, seperti asam amino dan
+asam lemak, memiliki hubungan dengan peningkatan risiko T2DM, yang
+menandakan bahwa penyakit ini bersifat kompleks dan dipengaruhi oleh berbagai
+faktor biologis maupun gaya hidup [9]. Oleh karena itu, deteksi dini dan
+penanganan yang tepat menjadi sangat penting untuk mencegah perkembangan
+penyakit serta mengurangi risiko komplikasi yang lebih lanjut.
+
+31
+
+2.2.2. Machine Learning dan Klasifikasi
+Machine learning merupakan bagian dari Artificial Intelligence yang
+memungkinkan sistem komputer untuk belajar dari data dan meningkatkan
+kinerjanya tanpa harus diprogram secara eksplisit. Istilah machine learning pertama
+kali diperkenalkan oleh Arthur Samuel pada tahun 1959, yang mendefinisikannya
+sebagai kemampuan komputer untuk belajar secara otomatis dari pengalaman.
+Seiring perkembangan teknologi, machine learning telah banyak digunakan dalam
+berbagai bidang, termasuk kesehatan, karena kemampuannya dalam mengolah data
+dalam jumlah besar dan menemukan pola yang kompleks [1].
+Dalam bidang kesehatan, machine learning dimanfaatkan untuk membantu
+proses prediksi dan pengambilan keputusan klinis, terutama dengan memanfaatkan
+data rekam medis elektronik (Electronic Health Records/ EHR). Data EHR
+memungkinkan
+
+model
+
+untuk
+
+mempelajari
+
+kondisi
+
+pasien
+
+secara
+
+lebih
+
+komprehensif, sehingga dapat meningkatkan akurasi prediksi penyakit [2], [3].
+Salah satu pendekatan yang umum digunakan dalam machine learning adalah
+supervised learning, yaitu metode pembelajaran di mana model dilatih
+menggunakan data yang telah memiliki label. Pada pendekatan ini, model belajar
+dari hubungan antara variabel input dan output, sehingga dapat digunakan untuk
+melakukan prediksi pada data baru. Salah satu bentuk permasalahan dalam
+supervised learning adalah klasifikasi, yaitu proses mengelompokkan data ke
+dalam kategori tertentu.
+Dalam penelitian ini, machine learning digunakan untuk melakukan
+klasifikasi biner, yaitu menentukan apakah seseorang termasuk dalam kategori
+penderita T2DM atau tidak. Berbagai algoritma klasifikasi telah dikembangkan dan
+digunakan dalam machine learning, mulai dari algoritma sederhana hingga yang
+lebih kompleks. Algoritma sederhana atau baseline seperti Logistic Regression,
+Support Vector Machine (SVM), dan K-Nearest Neighbors (KNN) sering digunakan
+karena mudah dipahami dan memiliki interpretasi yang baik [10], [11]. Seiring
+perkembangan teknologi, muncul metode yang lebih kompleks seperti ensemble
+learning, khususnya teknik boosting seperti Gradient Boosting, XGBoost, dan
+LightGBM, yang mampu meningkatkan performa model dengan menggabungkan
+32
+
+beberapa model sederhana menjadi model yang lebih kuat [16], [20]. Pendekatan
+ini memungkinkan model untuk menangani data yang lebih kompleks dan
+meningkatkan akurasi prediksi dibandingkan metode tunggal.
+
+Gambar 2. 1 Perbandingan Karakteristik Algoritma Machine learning
+
+Gambar 2.1 menunjukkan perbedaan karakteristik antara algoritma baseline
+dan algoritma berbasis boosting. Algoritma baseline seperti Logistic Regression,
+SVM, dan KNN umumnya lebih sederhana dan mudah diinterpretasikan, namun
+memiliki keterbatasan dalam menangani hubungan non-linear yang kompleks.
+Sebaliknya, algoritma boosting seperti Gradient Boosting, XGBoost, dan LightGBM
+mampu menangani data yang lebih kompleks melalui pendekatan ensemble,
+sehingga cenderung menghasilkan performa prediksi yang lebih tinggi [31].
+2.2.3. Normalisasi Data
+Normalisasi data merupakan proses transformasi nilai pada fitur numerik ke
+dalam skala tertentu sehingga setiap variabel memiliki distribusi atau rentang nilai
+yang lebih seragam. Proses ini bertujuan untuk mengurangi perbedaan skala antar
+fitur, sehingga setiap variabel memiliki kontribusi yang seimbang dalam proses
+pembelajaran model [32]. Perbedaan skala yang terlalu besar antar fitur dapat
+
+33
+
+menyebabkan algoritma machine learning menjadi bias terhadap fitur tertentu yang
+memiliki nilai dominan, sehingga berpotensi menurunkan performa model. Oleh
+karena itu, normalisasi menjadi salah satu tahapan penting dalam preprocessing
+data sebelum dilakukan proses pemodelan.
+Normalisasi umumnya diterapkan pada algoritma yang sensitif terhadap
+skala data, seperti KNN, SVM, Neural Network, serta metode berbasis clustering.
+Pada algoritma tersebut, perbedaan skala dapat memengaruhi perhitungan jarak
+atau optimasi model, sehingga diperlukan transformasi data agar berada pada skala
+yang sebanding [10]. Salah satu metode normalisasi yang digunakan dalam
+penelitian ini adalah Standard Scaler atau standarisasi berbasis Z-score. Metode ini
+mengubah distribusi data sehingga memiliki mean sebesar 0 dan standar deviasi
+sebesar 1. Proses standarisasi dilakukan dengan mengurangi setiap nilai data
+terhadap rata-rata, kemudian membaginya dengan standar deviasi. Metode ini
+cocok digunakan pada data yang memiliki distribusi mendekati normal, serta efektif
+dalam menjaga bentuk distribusi asli data. Rumus Standard Scaler ditunjukkan
+pada persamaan berikut:
+
+𝑧=
+
+𝑥− 𝜇
+𝜎
+
+(2. 1)
+
+dengan 𝑥 menyatakan nilai data, 𝜇 sebagai mean dari data, 𝜎 sebagai standar
+deviasi, dan 𝑧 merupakan hasil transformasi setelah proses standarisasi [32].
+2.2.4. Logistic Regression
+Logistic Regression merupakan algoritma klasifikasi berbasis model linear
+yang digunakan untuk memprediksi probabilitas suatu data termasuk ke dalam
+kelas tertentu. Algoritma ini menggunakan fungsi sigmoid untuk mengubah output
+linear menjadi nilai probabilitas antara 0 dan 1, sehingga dapat digunakan dalam
+permasalahan klasifikasi biner [11]. Secara matematis, fungsi sigmoid dapat
+dinyatakan sebagai berikut:
+
+σ(z) =
+
+1
+1+𝑒 −𝑧
+
+(2. 2)
+
+34
+
+dengan 𝑧 = 𝑤 𝑇 𝑥 + 𝑏, di mana 𝑤 merupakan bobot, 𝑥 adalah fitur atau variabel
+input, dan 𝑏 merupakan bias. Melalui fungsi ini, Logistic Regression memodelkan
+hubungan antara variabel input dan probabilitas output secara linear.
+Keunggulan utama dari algoritma ini adalah interpretabilitas yang tinggi,
+karena setiap koefisien dapat menjelaskan pengaruh masing-masing fitur terhadap
+hasil prediksi. Selain itu, proses komputasinya relatif cepat dan efisien. Namun,
+Logistic Regression memiliki keterbatasan dalam menangani hubungan non-linear
+serta cenderung memiliki performa yang lebih rendah dibandingkan algoritma yang
+lebih kompleks pada data dengan pola yang tidak sederhana [10].
+2.2.5. SVM
+Support Vector Machine (SVM) merupakan algoritma klasifikasi yang
+bekerja dengan mencari hyperplane terbaik yang dapat memisahkan dua kelas
+dengan margin maksimum. Hyperplane tersebut dipilih sedemikian rupa sehingga
+jarak antara data terdekat dari masing-masing kelas (support vectors) terhadap
+hyperplane menjadi maksimal [11], [33]. Secara matematis, fungsi keputusan pada
+SVM dapat dinyatakan sebagai berikut:
+
+𝑓(𝑥) = 𝑠𝑖𝑔𝑛(𝑤 ⋅ 𝜙(𝑥) + 𝑏)
+
+(2. 3)
+
+dengan 𝑤 adalah vektor bobot, 𝜙(𝑥) merupakan transformasi fitur melalui kernel,
+dan 𝑏 adalah bias. Penggunaan kernel trick memungkinkan SVM untuk
+memproyeksikan data ke ruang berdimensi lebih tinggi sehingga mampu
+menangani hubungan non-linear.
+Keunggulan utama SVM terletak pada kemampuannya dalam menangani
+data berdimensi tinggi serta menghasilkan margin yang optimal, sehingga sering
+memberikan performa yang baik. Namun, algoritma ini memiliki kelemahan dalam
+hal waktu komputasi yang relatif tinggi, terutama pada dataset besar, serta
+membutuhkan pemilihan kernel dan parameter yang tepat agar dapat bekerja secara
+optimal [10].
+
+35
+
+2.2.6. KNN
+K-Nearest Neighbors (KNN) merupakan algoritma berbasis instance-based
+learning yang melakukan klasifikasi berdasarkan kedekatan jarak antar data.
+Algoritma ini tidak membangun model secara eksplisit, melainkan menyimpan
+seluruh data latih dan menentukan kelas suatu data baru berdasarkan mayoritas
+kelas dari tetangga terdekatnya [14]. Metode KNN menggunakan perhitungan jarak,
+umumnya Euclidean distance, untuk menentukan kedekatan antar data, yang secara
+matematis dinyatakan sebagai berikut:
+
+𝑑(𝑥, 𝑦) = √∑𝑘𝑖=1(𝑥𝑖 − 𝑦𝑖)2
+
+(2. 4)
+
+dengan 𝑥𝑖 dan 𝑦𝑖 merepresentasikan nilai fitur dari dua data yang dibandingkan,
+nilai parameter 𝑘 merupakan jumlah tetangga terdekat yang digunakan dalam
+proses klasifikasi. KNN memiliki keunggulan karena sederhana, mudah
+diimplementasikan, dan tidak memerlukan proses pelatihan yang kompleks.
+Namun, algoritma ini sangat sensitif terhadap noise dan skala data, serta
+performanya sangat dipengaruhi oleh pemilihan nilai 𝑘. Selain itu, KNN juga
+memiliki kelemahan dalam hal efisiensi karena membutuhkan waktu komputasi
+yang lebih lama pada tahap prediksi, terutama pada dataset dengan ukuran besar
+[14] [34].
+2.2.7. Gradient Boosting
+Gradient Boosting merupakan algoritma boosting yang bekerja dengan
+membangun model secara iteratif berdasarkan kesalahan (residual) dari model
+sebelumnya. Pada setiap iterasi, model baru dilatih untuk meminimalkan fungsi loss
+dengan mengikuti arah gradien dari error yang dihasilkan, sehingga prediksi model
+menjadi semakin akurat [35]. Secara matematis, proses ini dapat dinyatakan sebagai
+berikut:
+
+𝐹𝑚 (𝑥) = 𝐹𝑚−1 (𝑥) + 𝛾𝑚 ℎ𝑚 (𝑥)
+
+(2. 5)
+
+melalui proses iteratif tersebut dapat dinyatakan bahwa 𝐹𝑚 (𝑥) merupakan model
+pada iterasi ke-𝑚, yang diperoleh dengan menambahkan weak learner ℎ𝑚 (𝑥) ke
+36
+
+model sebelumnya dengan faktor pengali berupa learning rate 𝛾𝑚 . Melalui
+pendekatan ini, model secara bertahap memperbaiki kesalahan prediksi sebelumnya
+dengan menambahkan weak learner pada setiap iterasi.
+Gradient Boosting memiliki keunggulan dalam menangani hubungan nonlinear dan pola data yang kompleks, sehingga sering menghasilkan performa yang
+tinggi. Namun, algoritma ini memiliki kelemahan berupa waktu pelatihan yang
+relatif lebih lama serta kecenderungan mengalami overfitting apabila parameter
+tidak diatur dengan baik [35].
+2.2.8. XGBoost
+XGBoost merupakan pengembangan dari Gradient Boosting yang dirancang
+untuk meningkatkan efisiensi dan performa model melalui berbagai optimasi
+komputasi dan penambahan regularisasi [36]. Algoritma ini tetap menggunakan
+konsep iteratif berbasis residual, tetapi dilengkapi dengan teknik tambahan seperti
+parallel processing, penanganan missing value secara otomatis, serta regularisasi
+untuk mengontrol kompleksitas model. Fungsi objektif pada XGBoost dapat
+dituliskan sebagai berikut:
+
+𝑂𝑏𝑗 = ∑ 𝑙(𝑦𝑖 , 𝑦̂𝑖 ) + ∑ 𝛺(𝑓𝑘 )
+𝑖
+
+𝑘
+
+(2. 6)
+
+fungsi objektif tersebut merupakan kombinasi antara loss function 𝑙, yang
+mengukur kesalahan prediksi model, dan komponen regularisasi Ω (Omega), yang
+berfungsi untuk mengontrol kompleksitas model agar tidak terlalu menyesuaikan
+data latih.
+Dengan pendekatan tersebut, XGBoost mampu menghasilkan performa
+yang sangat baik dan lebih stabil dibandingkan Gradient Boosting. Keunggulan
+utamanya terletak pada kecepatan pelatihan, kemampuan generalisasi yang baik,
+serta ketahanan terhadap overfitting. Meskipun demikian, kompleksitas algoritma
+ini lebih tinggi sehingga membutuhkan proses tuning hyperparameter yang lebih
+intensif dan interpretasi model yang lebih sulit [36].
+
+37
+
+2.2.9. LightGBM
+LightGBM merupakan algoritma boosting yang dikembangkan untuk
+meningkatkan efisiensi dalam proses pelatihan model, khususnya pada dataset
+berukuran besar. Berbeda dengan pendekatan level-wise pada tree tradisional,
+LightGBM menggunakan pendekatan leaf-wise tree growth, yaitu mengembangkan
+node pada bagian pohon yang memiliki error terbesar sehingga proses pembelajaran
+menjadi lebih cepat dan efisien [13].
+Selain itu, LightGBM juga memanfaatkan teknik seperti Gradient-based
+One-Side Sampling (GOSS) dan Exclusive Feature Bundling (EFB) untuk
+mengurangi kompleksitas data tanpa menghilangkan informasi penting. Secara
+matematis, LightGBM mengoptimasi fungsi objektif yang terdiri dari loss function
+dan regularisasi, yang dapat dinyatakan sebagai:
+2
+
+2
+
+(∑{𝑥𝑖∈𝑂:𝑥𝑖𝑗>𝑑} 𝑔𝑖 )
+1 (∑{𝑥𝑖∈𝑂:𝑥𝑖𝑗 ≤𝑑} 𝑔𝑖 )
+𝑉𝑗|𝑂 (𝑑) =
+(
++
+)
+𝑗
+𝑗
+𝑛𝑂
+𝑛 (𝑑)
+𝑛 (𝑑)
+𝑙|𝑂
+
+𝑟|𝑂
+
+(2. 7)
+
+dengan 𝑉𝑗∣𝑂 (𝑑) merupakan nilai gain pada fitur ke-𝑗 dengan titik split 𝑑. Himpunan
+𝑂 merupakan kumpulan data pada node yang sedang dievaluasi, sedangkan 𝑛𝑂
+menunjukkan jumlah data dalam himpunan tersebut. Nilai 𝑥𝑖 menunjukkan data ke𝑖, dan 𝑥𝑖𝑗 menunjukkan nilai fitur ke-𝑗 pada data ke-𝑖. Simbol 𝑔𝑖 merupakan
+gradient dari data ke-𝑖, yaitu nilai yang menunjukkan arah koreksi terhadap
+𝑗
+
+kesalahan prediksi model. Selanjutnya, 𝑛𝑙∣𝑂 (𝑑) menunjukkan jumlah data dari
+himpunan 𝑂 yang masuk ke cabang kiri karena memenuhi kondisi 𝑥𝑖𝑗 ≤ 𝑑,
+𝑗
+
+sedangkan 𝑛𝑟∣𝑂 (𝑑) menunjukkan jumlah data yang masuk ke cabang kanan karena
+memenuhi kondisi 𝑥𝑖𝑗 > 𝑑.
+2.2.10. Optuna Framework
+Hyperparameter merupakan parameter yang ditentukan sebelum proses
+pelatihan model dan sangat memengaruhi performa model [18]. Pemilihan
+hyperparameter yang tidak optimal dapat menyebabkan model mengalami
+overfitting maupun underfitting, sehingga diperlukan proses tuning untuk
+38
+
+mendapatkan kombinasi parameter terbaik. Hyperparameter tuning merupakan
+proses penting dalam meningkatkan performa model machine learning, karena
+berperan dalam mengoptimalkan cara model belajar dari data [18].
+Salah satu metode yang banyak digunakan adalah Optuna, yaitu framework
+optimasi hyperparameter yang dikembangkan oleh Preferred Networks, Inc. dan
+diperkenalkan pada tahun 2019 melalui publikasi Optuna: A Next-generation
+Hyperparameter Optimization Framework [37]. Framework ini dirancang untuk
+melakukan optimasi hyperparameter
+
+secara
+
+efisien dan adaptif
+
+dalam
+
+pengembangan model machine learning. Berbeda dengan metode pencarian
+konvensional seperti Grid Search dan Random Search yang mengevaluasi
+kombinasi hyperparameter secara statis, Optuna menggunakan pendekatan
+optimasi adaptif berbasis model probabilistik (Bayesian optimization). Secara
+default, Optuna memanfaatkan algoritma Tree-structured Parzen Estimator (TPE)
+sebagai metode sampling untuk memilih kombinasi hyperparameter yang paling
+menjanjikan berdasarkan hasil evaluasi trial sebelumnya [17].
+Selain itu, Optuna juga menyediakan mekanisme pruning, yaitu
+penghentian lebih awal terhadap trial yang tidak menunjukkan performa yang baik,
+sehingga efisiensi komputasi dapat ditingkatkan. Proses optimasi dalam Optuna
+dilakukan secara iteratif melalui trial, yang masing-masing mengevaluasi
+kombinasi hyperparameter tertentu dalam suatu proses yang disebut sebagai study.
+Salah satu karakteristik utama Optuna adalah penerapan prinsip define-by-run API,
+yaitu pendekatan yang memungkinkan ruang pencarian hyperparameter dibangun
+secara dinamis saat program dijalankan [37]. Dengan pendekatan ini, pengguna
+dapat mendefinisikan ruang pencarian secara fleksibel di dalam fungsi objektif
+menggunakan struktur pemrograman seperti percabangan dan perulangan. Secara
+umum, proses optimasi hyperparameter dapat dinyatakan sebagai berikut:
+
+𝑥 ∗ = 𝑎𝑟𝑔𝑚𝑖𝑛𝑥∈𝑋 𝑓(𝑥)
+
+(2. 8)
+
+Dalam proses hyperparameter tuning, kombinasi parameter dinyatakan sebagai 𝑥,
+sedangkan 𝑓(𝑥) merepresentasikan fungsi objektif yang digunakan untuk
+mengevaluasi performa model berdasarkan kombinasi parameter tersebut.
+39
+
+Beberapa penelitian menunjukkan bahwa penggunaan Optuna dapat meningkatkan
+performa model secara signifikan dibandingkan metode tuning tradisional seperti
+Grid Search [22]. Dengan demikian, penggunaan hyperparameter tuning yang tepat
+menjadi salah satu faktor penting dalam menghasilkan model prediksi yang
+optimal.
+2.2.11. Metrik Evaluasi
+Metrik evaluasi digunakan untuk mengukur seberapa baik performa model
+dalam melakukan prediksi terhadap data. Dalam permasalahan klasifikasi, evaluasi
+model tidak hanya berfokus pada tingkat akurasi, tetapi juga mempertimbangkan
+kemampuan model dalam mendeteksi masing-masing kelas secara tepat, terutama
+pada imbalanced data [16].
+A. Confusion Matrix
+Confusion matrix merupakan tabel yang digunakan untuk
+membandingkan hasil prediksi model dengan nilai aktual [20]. Tabel ini
+terdiri dari empat komponen utama, yaitu True Positive (TP), True Negative
+(TN), False Positive (FP), dan False Negative (FN). Gambar 2.2
+menunjukkan struktur Confusion matrix beserta komponen-komponen
+penyusunnya.
+
+Gambar 2. 2 Confusion matrix dan Performance Metrics
+
+40
+
+Melalui visualisasi ini, dapat dilihat bagaimana distribusi hasil prediksi
+model terhadap masing-masing kelas, sehingga membantu dalam
+memahami jenis kesalahan yang dihasilkan, seperti false positive maupun
+false negative.
+Berdasarkan nilai-nilai tersebut, dapat dihitung beberapa metrik
+evaluasi sebagai berikut:
+
+𝑇𝑃 + 𝑇𝑁
+𝑇𝑃 + 𝑇𝑁 + 𝐹𝑃 + 𝐹𝑁
+𝑇𝑃
+𝑷𝒓𝒆𝒄𝒊𝒔𝒊𝒐𝒏 =
+𝑇𝑃 + 𝐹𝑃
+𝑇𝑃
+𝑹𝒆𝒄𝒂𝒍𝒍 =
+𝑇𝑃 + 𝐹𝑁
+𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 × 𝑅𝑒𝑐𝑎𝑙𝑙
+𝑭𝟏 = 2 ×
+𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 + 𝑅𝑒𝑐𝑎𝑙𝑙
+𝑨𝒄𝒄𝒖𝒓𝒂𝒄𝒚 =
+
+(2. 9)
+
+(2. 10)
+
+(2. 11)
+
+(2. 12)
+
+Metrik accuracy digunakan untuk mengukur tingkat ketepatan prediksi
+secara keseluruhan. Precision menunjukkan ketepatan model dalam
+memprediksi kelas positif, sedangkan recall mengukur kemampuan model
+dalam mendeteksi seluruh data positif. Sementara itu, F1-score merupakan
+kombinasi antara precision dan recall yang memberikan keseimbangan
+antara keduanya. Pada dataset yang tidak seimbang, metrik seperti precision
+dan recall menjadi lebih penting dibandingkan accuracy, karena mampu
+memberikan gambaran performa model yang lebih realistis dalam
+mendeteksi kelas minoritas [16], [38].
+B. Kurva ROC dan AUC
+Selain confusion matrix, evaluasi model juga dapat dilakukan
+menggunakan Receiver Operating Characteristic (ROC) Curve, yaitu kurva
+yang menunjukkan hubungan antara True Positive Rate (TPR) dan False
+Positive Rate (FPR) pada berbagai nilai threshold [21]. Kurva ini digunakan
+untuk mengevaluasi kemampuan model dalam membedakan antara kelas
+
+41
+
+positif dan negatif. Gambar 2.3 menunjukkan visualisasi kurva ROC beserta
+nilai Area Under the Curve (AUC).
+
+Gambar 2. 3 ROC Curve dan AUC
+
+Melalui kurva ini, dapat diamati bagaimana performa model pada berbagai
+threshold klasifikasi, serta trade-off antara true positive rate dan false
+positive rate [39].
+Nilai AUC digunakan sebagai indikator performa model secara
+keseluruhan. Semakin mendekati nilai 1, maka semakin baik kemampuan
+model dalam melakukan klasifikasi. Secara matematis, nilai AUC dapat
+dinyatakan sebagai berikut:
+1
+
+𝐴𝑈𝐶 = ∫ 𝑇𝑃𝑅(𝐹𝑃 𝑅−1 (𝑥))𝑑𝑥
+0
+
+(2. 13)
+
+Nilai AUC yang tinggi menunjukkan bahwa model memiliki kemampuan
+yang baik dalam membedakan antara kelas positif dan negatif pada berbagai
+threshold. Selain itu, teknik cross-validation juga digunakan untuk
+memastikan bahwa model memiliki performa yang stabil dan tidak
+
+42
+
+bergantung pada satu pembagian data saja [19]. Dengan menggunakan
+teknik ini, model diuji pada beberapa subset data sehingga hasil evaluasi
+menjadi lebih robust dan dapat digeneralisasikan dengan lebih baik.
+2.2.12. Explainable AI
+Dalam penerapan machine learning di bidang kesehatan, interpretabilitas
+model menjadi hal yang sangat penting. Model yang memiliki akurasi tinggi tetapi
+sulit dipahami akan sulit digunakan dalam praktik klinis [23]. Oleh karena itu,
+Explainable AI (XAI) dikembangkan untuk meningkatkan transparansi model
+sehingga hasil prediksi dapat dipahami oleh manusia [40]. Salah satu metode XAI
+yang banyak digunakan adalah SHAP (SHAPley Additive exPlanations), yang
+mampu menjelaskan kontribusi setiap fitur terhadap hasil prediksi model [24].
+SHAP memiliki keunggulan karena dapat digunakan pada berbagai jenis model
+(model-agnostic) serta mampu memberikan interpretasi baik secara lokal (untuk
+satu data) maupun global (untuk keseluruhan model) [15]. Untuk membantu
+memahami hasil interpretasi tersebut, SHAP menyediakan berbagai bentuk
+visualisasi yang dapat digunakan untuk menjelaskan kontribusi fitur secara lebih
+intuitif.
+
+Gambar 2. 4 SHAP Visualizations
+
+43
+
+Gambar 2.4 menunjukkan beberapa jenis visualisasi SHAP yang umum digunakan,
+seperti force plot untuk menjelaskan prediksi pada satu individu (local
+explanation), summary plot untuk menunjukkan fitur-fitur paling berpengaruh
+secara global, serta dependence plot yang menggambarkan hubungan antara nilai
+fitur dengan hasil prediksi.
+Secara matematis, SHAP didasarkan pada konsep SHAPley Value dari game
+theory, yang dapat dinyatakan sebagai berikut:
+𝑛
+
+𝑓(𝑥) = 𝜙0 + ∑
+
+𝑖=1
+
+𝜙𝑖
+(2. 14)
+
+di mana 𝜙𝑖 merepresentasikan kontribusi dari fitur ke-𝑖 terhadap hasil prediksi,
+sedangkan 𝜙0 merupakan base value atau nilai awal prediksi sebelum
+mempertimbangkan pengaruh fitur. Melalui pendekatan ini, setiap prediksi model
+dapat dijelaskan sebagai kombinasi kontribusi dari seluruh fitur yang terlibat.
+Dengan adanya visualisasi dan formulasi tersebut, SHAP mampu
+memberikan pemahaman yang lebih mendalam mengenai bagaimana model
+membuat keputusan. Hal ini membuat model menjadi lebih transparan dan dapat
+dipercaya, terutama dalam konteks kesehatan yang membutuhkan akuntabilitas
+tinggi. Namun, meskipun memiliki banyak keunggulan, beberapa penelitian
+menunjukkan bahwa SHAP juga memiliki keterbatasan dalam kondisi tertentu,
+seperti sensitivitas terhadap distribusi data dan asumsi independensi fitur, sehingga
+penggunaannya perlu dilakukan secara hati-hati [25].
+
+44
+
+BAB III
+METODE PENELITIAN
+Pada bab ini dijelaskan mengenai metode yang digunakan dalam penelitian,
+meliputi subjek dan objek penelitian, alat dan bahan yang digunakan, serta alur
+penelitian yang dilakukan secara sistematis.
+3.1.
+
+Subjek dan Objek Penelitian
+Dalam penelitian ini, subjek dan objek penelitian didefinisikan untuk
+
+memperjelas ruang lingkup serta fokus kajian yang dilakukan. Pada bidang sains
+data, subjek penelitian umumnya berupa data, algoritma, atau sistem yang
+digunakan dalam proses analisis dan pemodelan, bukan melibatkan partisipasi
+manusia secara langsung.
+Subjek dalam penelitian ini adalah dataset diabetes yang digunakan sebagai
+sumber data utama dalam proses analisis dan pemodelan machine learning. Dataset
+tersebut berisi berbagai atribut yang berkaitan dengan kondisi kesehatan individu,
+seperti kadar glukosa, tekanan darah, BMI, usia, serta variabel lain yang relevan
+dalam menentukan risiko T2DM. Selain data, subjek penelitian juga mencakup
+algoritma machine learning yang digunakan, yaitu algoritma baseline (Logistic
+Regression, SVM, dan KNN) serta algoritma boosting (Gradient Boosting,
+XGBoost, dan LightGBM).
+Sementara itu, objek penelitian dalam penelitian ini adalah performa model
+machine learning dalam melakukan prediksi T2DM. Fokus utama penelitian adalah
+menganalisis
+
+dan
+
+membandingkan
+
+kinerja
+
+berbagai
+
+algoritma
+
+dalam
+
+mengklasifikasikan risiko diabetes, termasuk pengaruh hyperparameter tuning
+terhadap peningkatan performa model, serta bagaimana interpretasi model dapat
+dilakukan menggunakan pendekatan XAI. Dengan demikian, penelitian ini berfokus
+pada bagaimana kombinasi algoritma, teknik optimasi, dan interpretasi model dapat
+menghasilkan sistem prediksi yang akurat dan dapat dipahami, khususnya dalam
+konteks data kesehatan.
+
+45
+
+3.2.
+
+Alat dan Bahan Penelitian
+
+3.2.1. Alat Penelitian
+Alat yang digunakan dalam penelitian ini terdiri dari perangkat keras dan perangkat
+lunak yang mendukung proses pengolahan data serta pemodelan machine learning.
+Adapun rincian alat yang digunakan adalah sebagai berikut:
+1. Perangkat Keras
+a. Laptop Asus Vivobook M1403QA
+b. Processor AMD Ryzen 7 5800H with Radeon Graphics
+c. Memori (RAM) 16 GB
+d. Penyimpanan SSD 512 GB
+2. Perangkat Lunak
+a. Visual Studio Code sebagai lingkungan pengembangan
+b. Microsoft Word untuk penyusunan laporan penelitian
+c. Microsoft Excel untuk pengolahan data awal
+d. Mendeley sebagai manajemen referensi
+3.2.2. Bahan Penelitian
+Pada penelitian ini, bahan penelitian yang digunakan yaitu dataset EHR
+yang diperoleh dari kompetisi Practice Fusion Diabetes Classification yang
+diselenggarakan melalui platform Kaggle pada tahun 2012 sebagai bagian dari data
+mining challenge di bidang kesehatan yang berfokus pada prediksi T2DM. Dataset
+ini berasal dari Perusahaan Practice Fusion yang menyediakan data rekam medis
+pasien untuk keperluan analisis dan pengembangan model prediksi penyakit.
+Dataset yang digunakan terdiri dari beberapa file utama, yaitu diagnosis.csv
+sebanyak 9.948 data, medication.csv sebanyak 9.836 data, patient.csv sebanyak
+9.948 data, dan transcript.csv sebanyak 9.948 data yang berisi informasi terkait
+kondisi pasien, riwayat pengobatan, data demografis, spesialisasi dokter, serta
+catatan medis pasien. Data-data tersebut digunakan sebagai fitur dalam proses
+pemodelan machine learning dengan variabel target berupa status diagnosis
+diabetes.
+
+46
+
+3.3.
+
+Diagram Alir Penelitian
+Penelitian ini menggunakan pendekatan OSEMN (Obtain, Scrub, Explore,
+
+Model, iNterpret) sebagai kerangka kerja dalam proses pengolahan data dan
+pembangunan model machine learning. Pendekatan ini dipilih karena mampu
+menggambarkan alur kerja data science secara sistematis, mulai dari pengumpulan
+data hingga interpretasi hasil model.
+
+Gambar 3. 1 Diagram Alir Penelitian
+
+47
+
+3.3.1. OBTAIN (Perolehan Data)
+Tahap Obtain merupakan tahap awal dalam kerangka kerja OSEMN yang
+yang bertujuan untuk memperoleh data yang relevan dengan tujuan penelitian, yaitu
+membangun model prediksi T2DM berbasis data EHR. Pada tahap ini dilakukan
+identifikasi sumber data, pemahaman struktur dataset, serta penentuan variabel
+yang akan digunakan dalam proses pemodelan machine learning.
+Dataset yang digunakan terdiri dari beberapa file utama yang
+merepresentasikan berbagai aspek rekam medis pasien. Untuk menghasilkan
+dataset yang komprehensif, seluruh data diintegrasikan menggunakan atribut kunci
+PatientGuid. Untuk mempermudah pemahaman struktur data, ringkasan masingmasing dataset beserta atribut yang digunakan disajikan pada Tabel 3.1.
+Tabel 3. 1 Struktur Dataset
+
+Dataset
+
+Deskripsi
+
+Atribut
+
+Data demografis pasien
+patient.csv
+
+dan variabel target
+
+PatientGuid, Age, Gender,
+
+(deskripsi lengkap
+
+State, DMIndicator
+
+disajikan pada Lampiran 1)
+
+diagnosis.csv
+
+Riwayat diagnosis
+
+PatientGuid,
+
+berdasarkan ICD-9
+
+DiagnosisCount, VisitCount,
+
+(deskripsi lengkap disajikan
+
+DiagnosisFreq, AcuteCount,
+
+pada Lampiran 2)
+
+AcuteFreq, Icd9_001-899
+Fitur penggunaan obat pasien
+
+medication.csv
+
+Data penggunaan obat
+
+yang merepresentasikan
+
+pasien (deskripsi lengkap
+
+konsumsi berbagai jenis obat,
+
+disajikan pada Lampiran 3)
+
+dengan jumlah atribut lebih
+dari 2000 kolom
+
+Data pemeriksaan klinis
+transcript.csv
+
+(deskripsi lengkap disajikan
+pada Lampiran 4)
+
+BMI (Mean, Max, Min),
+SystolicBP, DiastolicBP,
+Weight, Temperature, serta
+fitur perubahan
+
+48
+
+Berdasarkan Tabel 3.1, dapat dilihat bahwa dataset yang digunakan dalam
+penelitian ini mencakup berbagai aspek rekam medis pasien, mulai dari data
+demografis, riwayat diagnosis, penggunaan obat, hingga hasil pemeriksaan klinis.
+Masing-masing dataset memiliki peran yang saling melengkapi dalam
+merepresentasikan kondisi pasien secara menyeluruh.
+Dataset patient.csv berfungsi sebagai sumber utama
+
+karena memuat
+
+variabel target yang digunakan dalam penelitian, sedangkan dataset lainnya
+berperan sebagai variabel prediktor yang memperkaya informasi pasien. Dengan
+menggabungkan seluruh dataset tersebut, diharapkan diperoleh representasi data
+yang lebih komprehensif sehingga dapat meningkatkan kemampuan model dalam
+memprediksi status T2DM. Selanjutnya, seluruh dataset akan diintegrasikan.
+Proses integrasi data dilakukan melalui teknik merging secara bertahap
+menggunakan atribut PatientGuid sebagai primary key, sehingga seluruh informasi
+pasien dari berbagai sumber dapat digabungkan menjadi satu dataset yang utuh.
+3.3.2. SCRUB (Pembersihan dan Penyiapan Data)
+Tahap Scrub merupakan proses pembersihan dan penyiapan data agar siap
+digunakan dalam analisis dan pemodelan. Dataset EHR umumnya memiliki
+karakteristik yang kompleks, seperti adanya missing values, data duplikat, serta
+distribusi kelas yang tidak seimban. Oleh karena itu, tahap ini menjadi krusial
+karena kualitas data akan sangat memengaruhi performa model yang dihasilkan.
+Data yang tidak bersih atau tidak konsisten berpotensi menyebabkan model
+menghasilkan prediksi yang bias atau kurang akurat.
+1.
+
+Data Cleaning
+Proses pembersihan data dilakukan untuk memastikan dataset
+berada dalam kondisi yang layak digunakan. Tahapan yang dilakukan
+meliputi pemeriksaan missing values, data duplikat, serta konsistensi nilai
+pada setiap fitur. Pada data EHR, missing values tidak selalu dapat diartikan
+sebagai kesalahan, melainkan dapat merepresentasikan kondisi tertentu,
+seperti pemeriksaan yang tidak dilakukan. Oleh karena itu, penanganan
+missing values dilakukan secara hati-hati.
+49
+
+Dalam penelitian ini, missing values diimputasi menggunakan nilai
+median untuk setiap fitur numerik, karena metode ini lebih robust terhadap
+outlier dibandingkan mean dan tetap mempertahankan karakteristik
+distribusi data. Selain itu, ditambahkan missing indicator pada fitur yang
+memiliki nilai hilang untuk menandai bahwa nilai tersebut merupakan hasil
+imputasi, bukan nilai observasi asli. Pendekatan ini dilakukan agar model
+tetap dapat menangkap informasi keberadaan missing values sebagai bagian
+dari pola data. Selain itu, dilakukan identifikasi dan penghapusan data
+duplikat untuk menghindari bias akibat pengulangan data, serta
+pemeriksaan outlier yang berpotensi memengaruhi performa model.
+2.
+
+Feature Engineering dan Encoding
+Pada tahap ini dilakukan transformasi dan penyesuaian fitur agar
+data dapat digunakan secara optimal dalam proses pemodelan machine
+learning. Proses ini mencakup encoding variabel kategorikal serta
+transformasi fitur numerik. Variabel kategorikal dikonversi menjadi
+numerik menggunakan metode one-hot encoding, terutama untuk fitur
+nominal seperti jenis kelamin dan kategori diagnosis, karena metode ini
+tidak memberikan asumsi urutan antar kategori.
+Selain itu, dilakukan penyesuaian tipe data pada seluruh fitur agar
+sesuai dengan kebutuhan model. Untuk fitur numerik, diterapkan proses
+standarisasi menggunakan metode StandardScaler (Z-score scaling) untuk
+menyamakan skala antar fitur. Proses ini penting terutama untuk algoritma
+yang sensitif terhadap perbedaan skala data seperti SVM dan KNN.
+Standarisasi diterapkan pada fitur numerik kontinu seperti usia, BMI,
+tekanan darah, suhu tubuh, serta fitur berbasis jumlah dan frekuensi seperti
+jumlah diagnosis dan jumlah kunjungan. Sementara itu, fitur kategorikal
+hasil encoding serta fitur biner seperti ICD dan penggunaan obat tidak
+dikenakan proses standarisasi karena telah berada dalam skala yang
+seragam. Untuk algoritma berbasis boosting seperti XGBoost dan
+LightGBM, proses standarisasi tidak menjadi kebutuhan utama. Namun,
+penerapan standarisasi tetap dilakukan secara konsisten dalam pipeline
+50
+
+pemodelan untuk menjaga keseragaman proses antar algoritma serta
+memastikan perbandingan performa yang lebih objektif.
+3.
+
+Pembagian Data
+Dataset kemudian dibagi menjadi data latih dan data uji
+menggunakan metode stratified split dengan proporsi 70:30, sehingga
+distribusi kelas tetap seimbang pada kedua subset. Data latih digunakan
+untuk proses pelatihan dan hyperparameter tuning, sedangkan data uji
+digunakan secara eksklusif untuk evaluasi akhir model. Pemisahan ini
+penting untuk mencegah terjadinya data leakage serta memastikan bahwa
+model memiliki kemampuan generalisasi yang baik terhadap data baru.
+
+4.
+
+Penanganan Class Imbalance
+Distribusi kelas pada dataset kesehatan sering kali tidak seimbang,
+di mana jumlah data non-diabetes lebih besar dibandingkan data T2DM.
+Kondisi ini dapat menyebabkan model cenderung bias terhadap kelas
+mayoritas. Untuk mengatasi hal tersebut, digunakan teknik penanganan
+class imbalance, baik pada tingkat algoritma maupun tingkat data.
+Pendekatan yang digunakan meliputi penyesuaian class weight pada model
+serta teknik oversampling seperti SMOTE untuk meningkatkan representasi
+kelas minoritas. Pemilihan metode dilakukan berdasarkan hasil evaluasi
+untuk memastikan bahwa model tidak hanya akurat secara keseluruhan,
+tetapi juga mampu mendeteksi kelas diabetes dengan baik.
+
+3.3.3. EXPLORE (Eksplorasi Data)
+Tahap explore bertujuan untuk memahami karakteristik data melalui proses
+Exploratory Data Analysis (EDA) sebelum dilakukan pemodelan. Pada tahap ini
+dilakukan analisis statistik deskriptif dan visualisasi data untuk mengidentifikasi
+distribusi data, pola hubungan antar variabel, serta indikasi awal faktor-faktor yang
+berpengaruh terhadap status T2DM. EDA menjadi tahap penting karena membantu
+dalam memahami struktur data secara menyeluruh, sehingga strategi pemodelan
+yang digunakan dapat disesuaikan dengan karakteristik data yang ada. Dalam
+
+51
+
+penelitian ini, proses eksplorasi data dilakukan melalui beberapa tahapan utama,
+yaitu sebagai berikut:
+1.
+
+Analisis Distribusi Kelas
+Analisis distribusi kelas dilakukan untuk mengetahui proporsi antara
+kelas diabetes dan non-diabetes dalam dataset. Proses ini meliputi
+perhitungan jumlah dan persentase masing-masing kelas, serta identifikasi
+adanya class imbalance. Hasil analisis ini digunakan untuk menentukan
+strategi penanganan ketidakseimbangan data serta pemilihan metrik
+evaluasi model yang sesuai, sehingga model tidak bias terhadap kelas
+mayoritas.
+
+2.
+
+Statistik Deskriptif Variabel
+Statistik deskriptif digunakan untuk memberikan gambaran umum
+mengenai karakteristik data pada setiap variabel. Analisis dilakukan
+terhadap fitur-fitur utama, khususnya yang berkaitan dengan kondisi klinis
+pasien, seperti BMI, tekanan darah, dan indikator kesehatan lainnya.
+Statistik yang dianalisis meliputi nilai rata-rata, minimum, maksimum, serta
+distribusi data. Selain itu, visualisasi seperti histogram dan boxplot
+digunakan untuk membantu memahami sebaran data dan mendeteksi
+potensi anomali atau outlier.
+
+3.
+
+Analisis Hubungan Antar Variabel
+Tahap ini bertujuan untuk mengidentifikasi hubungan antara
+variabel prediktor dengan variabel target yaitu status diabetes, serta
+hubungan antar fitur. Pendekatan yang dilakukan bersifat deskriptif, seperti
+membandingkan distribusi variabel pada kelompok diabetes dan nondiabetes, serta mengamati pola hubungan antar variabel. Selain itu,
+digunakan visualisasi seperti heatmap korelasi untuk melihat hubungan
+antar fitur. Analisis ini membantu dalam mengidentifikasi variabel yang
+memiliki indikasi kuat terhadap status diabetes, meskipun tidak digunakan
+untuk menarik kesimpulan kausal.
+
+52
+
+3.3.4. MODEL (Pemodelan)
+Tahap Model merupakan tahap inti dalam penelitian yang bertujuan untuk
+membangun model klasifikasi dalam memprediksi status T2DM berdasarkan data
+EHR. Pada penelitian ini digunakan dua kelompok algoritma, yaitu algoritma
+baseline dan algoritma boosting, untuk membandingkan performa model sederhana
+dengan model yang lebih kompleks dalam menangani data kesehatan yang
+memiliki pola non-linear serta potensi ketidakseimbangan kelas. Algoritma
+baseline yang digunakan terdiri dari Logistic Regression, SVM, dan KNN.
+Sedangkan algoritma boosting yang digunakan meliputi Gradient Boosting,
+XGBoost, dan LightGBM.
+Penggunaan dua kelompok algoritma ini bertujuan untuk melihat
+peningkatan performa yang dihasilkan oleh pendekatan ensemble dibandingkan
+metode dasar. Algoritma baseline digunakan sebagai acuan awal, sedangkan
+algoritma boosting digunakan untuk mengevaluasi peningkatan akurasi dan
+kemampuan generalisasi model. Dalam proses pemodelan, diterapkan prinsip
+evaluasi yang valid dengan memisahkan data latih dan data uji secara tegas untuk
+menghindari data leakage. Seluruh proses pelatihan dan tuning hanya dilakukan
+pada data latih, sedangkan data uji digunakan secara eksklusif untuk evaluasi akhir
+model. Untuk memastikan bahwa proses pemodelan dilakukan secara sistematis
+dan hasil yang diperoleh dapat dibandingkan secara objektif, penelitian ini
+dirancang dalam beberapa tahapan pemodelan sebagai berikut:
+1.
+
+Desain Eksperimen
+Desain eksperimen dalam penelitian ini berfokus pada perbandingan
+performa enam algoritma klasifikasi dalam memprediksi status T2DM.
+Setiap algoritma dilatih menggunakan dataset yang sama dengan pembagian
+data yang konsisten agar hasil yang diperoleh dapat dibandingkan secara
+adil. Seluruh model menggunakan variabel prediktor yang sama, yaitu fiturfitur yang berasal dari data EHR seperti kondisi klinis, riwayat diagnosis,
+penggunaan obat, serta indikator kesehatan lainnya, dengan target berupa
+status diabetes. Perbandingan model dilakukan menggunakan metrik
+
+53
+
+evaluasi yang seragam untuk menentukan algoritma dengan performa
+terbaik.
+2.
+
+Pipeline Pemodelan
+Gambar 3.2 menunjukkan alur proses pembangunan model machine
+learning yang digunakan dalam penelitian ini untuk prediksi Diabetes
+Mellitus Tipe 2.
+
+Gambar 3. 2 Machine learning Pipeline untuk Prediksi Diabetes
+
+Proses dimulai dari tahap data preprocessing, yang meliputi
+pembersihan data, penanganan missing values, serta normalisasi atau
+standarisasi data agar memiliki skala yang seragam. Selanjutnya dilakukan
+feature engineering untuk memilih dan mentransformasi fitur yang relevan
+sehingga dapat meningkatkan kualitas model. Setelah itu, data dibagi
+menjadi variabel prediktor (X) dan variabel target (Y), kemudian dilakukan
+pembagian data menjadi data latih dan data uji menggunakan metode
+stratified split untuk menjaga proporsi kelas. Tahap berikutnya adalah
+
+54
+
+hyperparameter tuning menggunakan Optuna untuk menemukan kombinasi
+parameter terbaik dari masing-masing algoritma.
+Proses model training kemudian dilakukan menggunakan dua
+kelompok algoritma, yaitu algoritma baseline seperti Logistic Regression,
+SVM, dan KNN dan algoritma berbasis boosting seperti Gradient Boosting,
+XGBoost, dan LightGBM. Setelah seluruh model dilatih, dilakukan
+pengujian menggunakan data uji, kemudian dihitung metrik evaluasi seperti
+accuracy, precision, recall, F1-score, serta AUC-ROC. Selain itu,
+digunakan teknik cross-validation untuk memastikan bahwa model
+memiliki performa yang stabil dan tidak mengalami overfitting.
+Berdasarkan hasil evaluasi tersebut, dipilih model dengan performa terbaik
+untuk selanjutnya dianalisis menggunakan pendekatan XAI dengan metode
+SHAP guna mengetahui kontribusi masing-masing fitur terhadap hasil
+prediksi. Pipeline ini diterapkan secara konsisten pada seluruh algoritma
+untuk memastikan bahwa hasil perbandingan bersifat objektif dan tidak
+bias.
+3.
+
+Baseline Model
+Baseline model digunakan untuk memperoleh gambaran performa
+awal sebelum menggunakan algoritma yang lebih kompleks. Algoritma
+yang digunakan adalah Logistic Regression, SVM, dan KNN. Logistic
+Regression dipilih karena memiliki interpretasi yang baik dan sederhana.
+SVM digunakan karena kemampuannya dalam menangani data berdimensi
+tinggi dan memisahkan kelas secara optimal. KNN digunakan sebagai
+metode berbasis jarak yang sederhana namun cukup efektif dalam beberapa
+kasus klasifikasi. Ketiga algoritma ini umum digunakan sebagai
+pembanding dalam penelitian machine learning karena kesederhanaan dan
+kestabilannya.
+
+4.
+
+Model Boosting
+Selain baseline, penelitian ini juga menggunakan algoritma
+boosting, yaitu Gradient Boosting, XGBoost, dan LightGBM. Algoritma
+boosting bekerja secara iteratif dengan memperbaiki kesalahan model
+55
+
+sebelumnya sehingga mampu meningkatkan performa secara bertahap.
+Gradient Boosting membangun model berdasarkan minimisasi fungsi loss
+secara iteratif. XGBoost merupakan pengembangan yang lebih optimal
+dengan tambahan regularisasi dan efisiensi komputasi. LightGBM
+menggunakan pendekatan leaf-wise growth yang membuat proses pelatihan
+lebih cepat dan efisien, terutama pada dataset besar. Penggunaan algoritma
+boosting bertujuan untuk meningkatkan akurasi dan kemampuan model
+dalam menangani kompleksitas data EHR.
+5.
+
+Tuning Hyperparameter
+Untuk mendapatkan performa model yang optimal, dilakukan tuning
+hyperparameter pada masing-masing algoritma menggunakan metode
+optimasi seperti Optuna. Parameter yang dituning antara lain:
+•
+
+Logistic Regression: parameter regularisasi
+
+•
+
+SVM: kernel dan parameter C
+
+•
+
+KNN: jumlah tetangga (k)
+
+•
+
+Gradient Boosting: learning rate dan jumlah estimator
+
+•
+
+XGBoost & LightGBM: learning rate, max depth, dan jumlah tree
+
+Proses tuning dilakukan menggunakan data latih untuk menemukan
+kombinasi parameter terbaik secara efisien.
+6.
+
+Model Final dan Evaluasi
+Model final diperoleh dari hasil tuning terbaik pada masing-masing
+algoritma. Model tersebut kemudian diuji menggunakan data uji untuk
+mendapatkan performa akhir. Evaluasi model dilakukan menggunakan
+beberapa metrik, yaitu Accuracy, Precision, Recall, F1-score, dan ROCAUC. Selain itu, digunakan teknik cross-validation pada tahap pelatihan
+untuk memastikan bahwa model memiliki performa yang stabil dan tidak
+mengalami overfitting. Setelah model terbaik diperoleh, dilakukan
+interpretasi model menggunakan pendekatan XAI, yaitu SHAP, yang
+diterapkan hanya pada model dengan performa terbaik.
+
+56
+
+3.3.5. INTERPRET (Evaluasi dan Interpretasi Model)
+Tahap iNterpret merupakan tahap akhir dalam proses penelitian yang
+bertujuan untuk mengevaluasi performa model serta memahami hasil prediksi yang
+dihasilkan. Evaluasi dilakukan untuk mengukur kemampuan model dalam
+mengklasifikasikan status T2DM secara akurat, khususnya pada data yang
+berpotensi tidak seimbang. Selain itu, tahap ini juga menekankan pentingnya
+interpretasi model agar hasil prediksi tidak hanya akurat, tetapi juga dapat
+dipahami, terutama dalam konteks kesehatan yang membutuhkan transparansi
+dalam proses pengambilan keputusan. Dalam tahap ini, proses analisis dilakukan
+melalui dua bagian utama, yaitu evaluasi performa model dan interpretasi hasil
+prediksi menggunakan pendekatan XAI.
+1.
+
+Evaluasi Model
+Evaluasi model dilakukan menggunakan data uji untuk memperoleh
+gambaran performa model terhadap data yang belum pernah dilihat
+sebelumnya.
+a. Confusion Matrix
+Confusion matrix digunakan untuk mengevaluasi hasil
+klasifikasi model ke dalam dua kelas, yaitu diabetes dan nondiabetes. Komponen yang dianalisis meliputi:
+•
+
+True Positive (TP): data diabetes yang diprediksi benar
+
+•
+
+True Negative (TN): data non-diabetes yang diprediksi benar
+
+•
+
+False Positive (FP): data non-diabetes yang diprediksi
+sebagai diabetes
+
+•
+
+False Negative (FN): data diabetes yang diprediksi sebagai
+non-diabetes
+
+Analisis confusion matrix penting untuk memahami jenis kesalahan
+yang dilakukan model, terutama dalam mendeteksi kasus diabetes.
+b. Metrik Evaluasi
+Berdasarkan confusion matrix, dihitung beberapa metrik
+evaluasi utama, yaitu:
+
+57
+
+•
+
+Accuracy untuk mengukur tingkat ketepatan prediksi secara
+keseluruhan
+
+•
+
+Precision untuk mengukur ketepatan prediksi pada kelas
+diabetes
+
+•
+
+Recall
+
+untuk
+
+mengukur
+
+kemampuan
+
+model
+
+dalam
+
+mendeteksi kasus diabetes
+•
+
+F1-score sebagai kombinasi antara precision dan recall
+
+Dalam penelitian ini, recall menjadi metrik yang sangat penting,
+karena berkaitan langsung dengan kemampuan model dalam
+mendeteksi pasien yang benar-benar menderita diabetes, sehingga
+dapat meminimalkan kesalahan false negative.
+c. ROC-AUC
+ROC-AUC digunakan untuk mengukur kemampuan model
+dalam membedakan antara kelas diabetes dan non-diabetes pada
+berbagai nilai threshold. Nilai ROC-AUC yang lebih tinggi
+menunjukkan kemampuan klasifikasi yang lebih baik. Selain itu,
+kurva ROC juga digunakan sebagai visualisasi untuk melihat tradeoff antara true positive rate dan false positive rate.
+Selain evaluasi menggunakan metrik tersebut, digunakan
+juga teknik cross-validation untuk memastikan bahwa model tidak
+hanya bekerja baik pada satu pembagian data saja. Teknik ini
+membagi data menjadi beberapa bagian (fold) dan melakukan
+pelatihan serta pengujian secara bergantian, sehingga hasil evaluasi
+menjadi lebih stabil dan mampu merepresentasikan performa model
+secara lebih umum.
+2.
+
+Interpretasi Model
+Selain evaluasi performa, penelitian ini juga menerapkan pendekatan
+XAI untuk meningkatkan transparansi model. Metode yang digunakan
+adalah SHAP, yang diterapkan pada model dengan performa terbaik.
+Beberapa visualisasi yang digunakan dalam SHAP antara lain:
+58
+
+•
+
+Summary plot untuk melihat fitur yang paling berpengaruh
+
+•
+
+Dependence plot untuk melihat hubungan antara fitur dan prediksi
+
+•
+
+Force plot untuk menjelaskan kontribusi fitur pada prediksi individu
+
+Penggunaan SHAP sangat penting karena model machine learning, terutama
+algoritma boosting seperti XGBoost dan LightGBM, cenderung bersifat
+kompleks. Dengan adanya interpretasi ini, hasil prediksi menjadi lebih
+transparan dan dapat dipahami oleh pengguna, khususnya tenaga medis.
+Output dari tahap ini berupa perbandingan performa seluruh
+algoritma, penentuan model terbaik berdasarkan metrik evaluasi, serta
+visualisasi dan interpretasi kontribusi fitur menggunakan SHAP pada model
+terpilih. Hasil tersebut kemudian digunakan untuk menarik kesimpulan
+mengenai model terbaik sekaligus memberikan pemahaman yang lebih
+mendalam terhadap faktor-faktor yang memengaruhi prediksi T2DM
+berdasarkan data EHR.
+
+59
+
+DAFTAR PUSTAKA
+[1]
+
+R. K. Manik, D. K. Jain, U. Kaushik, A. Raina, S. B. Takmare, and A. Thorat,
+“Machine Learning Techniques for Early Detection and Risk Prediction in
+Chronic Diseases,” in 2025 International Conference on Metaverse and
+Current
+
+Trends
+
+in
+
+Computing,
+
+ICMCTC
+
+2025,
+
+2025.
+
+doi:
+
+10.1109/ICMCTC62214.2025.11196523.
+[2]
+
+L. Hunik et al., “Diagnostic Prediction Models for Primary Care, Based on
+AI and Electronic Health Records: Systematic Review,” JMIR Medical
+Informatics, vol. 13. 2025. doi: 10.2196/62862.
+
+[3]
+
+J. Wang et al., “Recent Advances in Predictive Modeling with Electronic
+Health
+
+Records,”
+
+Aug.
+
+2024,
+
+[Online].
+
+Available:
+
+http://arxiv.org/abs/2402.01077
+[4]
+
+S. J. Mataraso et al., “A machine learning approach to leveraging electronic
+health records for enhanced omics analysis,” 2024.
+
+[5]
+
+J. E. Gerwer, G. Bacani, P. S. Juang, and K. Kulasa, “Electronic Health
+Record–Based
+
+Decision-Making
+
+Support
+
+in
+
+Inpatient
+
+Diabetes
+
+Management,” Current Diabetes Reports, vol. 22, no. 9. 2022. doi:
+10.1007/s11892-022-01481-0.
+[6]
+
+R. P. Robertson, “Epidemiology and Pathogenesis of Type 2 Diabetes,” in
+Transplantation of the Pancreas: Second Edition, 2023. doi: 10.1007/978-3031-20999-4_3.
+
+[7]
+
+WHO, “https://www.who.int/news-room/fact-sheets/detail/diabetes,” World
+health organization, 2023.
+
+[8]
+
+L. V. Zhuravlyova, T. A. Rohachova, and O. O. Yankevich, “Cardiovascular
+autonomic neuropathy in patients with type 2 diabetes mellitus. Review,”
+Ukrainian Therapeutical Journal, vol. 2024, no. 4. 2024. doi:
+10.30978/UTJ2024-4-68.
+
+[9]
+
+C. Qiu et al., “Novel amino acid and fatty acid signatures linked to type 2
+diabetes risk after gestational diabetes mellitus,” Cardiovasc. Diabetol., vol.
+25, no. 1, Dec. 2026, doi: 10.1186/s12933-026-03144-w.
+
+[10]
+
+M. Fadli Kurniawan and D. Ayu Megawaty, “Comparison of Logistic
+60
+
+Regression, Random Forest, Support Vector Machine (SVM) and K-Nearest
+Neighbor (KNN) Algorithms in Diabetes Prediction,” 2025. [Online].
+Available: http://jurnal.polibatam.ac.id/index.php/JAIC
+[11]
+
+V. Sheth, U. Tripathi, and A. Sharma, “A Comparative Analysis of Machine
+Learning Algorithms for Classification Purpose,” in Procedia Computer
+Science, 2022, vol. 215. doi: 10.1016/j.procs.2022.12.044.
+
+[12]
+
+I. D. Mienye and Y. Sun, “A Survey of Ensemble Learning: Concepts,
+Algorithms, Applications, and Prospects,” IEEE Access, vol. 10. 2022. doi:
+10.1109/ACCESS.2022.3207287.
+
+[13]
+
+Z. A. Ali, Z. H. Abduljabbar, H. A. Taher, A. B. Sallow, and S. M. Almufti,
+“Exploring the power of eXtreme gradient boosting algorithm in machine
+learning: A review,” Acad. J. Nawroz Univ., vol. 12, no. 2, 2023.
+
+[14]
+
+B. S. Ahamed, M. S. Arya, and A. O. Nancy V, “Prediction of Type-2
+Diabetes Mellitus Disease Using Machine Learning Classifiers and
+Techniques,” Frontiers in Computer Science, vol. 4. 2022. doi:
+10.3389/fcomp.2022.835242.
+
+[15]
+
+R. Hasan, V. Dattana, S. Mahmood, and S. Hussain, “Towards Transparent
+Diabetes Prediction: Combining AutoML and Explainable AI for Improved
+Clinical Insights,” Inf., vol. 16, no. 1, 2025, doi: 10.3390/info16010007.
+
+[16]
+
+A. I. Elseddawy, F. K. Karim, A. M. Hussein, and D. S. Khafaga, “Predictive
+Analysis of Diabetes-Risk with Class Imbalance,” Comput. Intell. Neurosci.,
+vol. 2022, 2022, doi: 10.1155/2022/3078025.
+
+[17]
+
+S. Dhanka and S. Maini, “A hybridization of XGBoost machine learning
+model by Optuna hyperparameter tuning suite for cardiovascular disease
+classification with significant effect of outliers and heterogeneous training
+datasets,” Int. J. Cardiol., vol. 420, 2025, doi: 10.1016/j.ijcard.2024.132757.
+
+[18]
+
+Ștefana Duță and A. E. Sultana, “Optimizing Depression Classification
+Using Combined Datasets and Hyperparameter Tuning with Optuna,”
+Sensors, vol. 25, no. 7, 2025, doi: 10.3390/s25072083.
+
+[19]
+
+S. S. Bontha, S. K. R. Jammalamadaka, C. P. Vudatha, S. B.
+Jammalamadaka, B. K. Duvvuri, and B. C. Vudatha, “Predicting Risk and
+61
+
+Complications of Diabetes Through Built-In Artificial Intelligence,”
+Computers, vol. 14, no. 7, 2025, doi: 10.3390/computers14070277.
+[20]
+
+H. Zhang, W. Fan, P. Li, X. Chen, and S. Yin, “Predicting the diabetic foot
+in patients with type 2 diabetes mellitus based on machine learning,” Biomed.
+Eng. Online, 2026, doi: 10.1186/s12938-025-01494-2.
+
+[21]
+
+X. Liu et al., “An online interpretable machine learning model for predicting
+cardiometabolic multimorbidity risk in patients with type 2 diabetes
+mellitus,” Sci. Rep., 2026, doi: 10.1038/s41598-026-36923-2.
+
+[22]
+
+H. El Massari, N. Gherabi, F. Qanouni, and S. Mhammedi, “Diabetes
+Prediction Using Machine Learning with Feature Engineering and
+Hyperparameter Tuning,” Int. J. Adv. Comput. Sci. Appl., vol. 15, no. 8,
+2024, doi: 10.14569/IJACSA.2024.0150818.
+
+[23]
+
+E. Nasarian, R. Alizadehsani, U. R. Acharya, and K. L. Tsui, “Designing
+interpretable ML system to enhance trust in healthcare: A systematic review
+to proposed responsible clinician-AI-collaboration framework,” Inf. Fusion,
+vol. 108, 2024, doi: 10.1016/j.inffus.2024.102412.
+
+[24]
+
+I. Syahrani Tamsir, A. Gautama Putrada, and R. Lingga Wicaksono, “SHAP
+dalam Explainable AI untuk Deteksi Depresi Mahasiswa Menggunakan
+AdaBoost,” 2026.
+
+[25]
+
+X. Huang and J. Marques-Silva, “On the failings of Shapley values for
+explainability,”
+
+Int.
+
+J.
+
+Approx.
+
+Reason.,
+
+vol.
+
+171,
+
+2024,
+
+doi:
+
+10.1016/j.ijar.2023.109112.
+[26]
+
+K. Syaban and Mardiawati, “Evaluasi Model Ensemble Learning pada
+Identifikasi Faktor Risiko Diabetes Mellitus,” J. Teknol. dan Inf., vol. 15, no.
+2, pp. 121–130, Sep. 2025, doi: 10.34010/jati.v15i2.16238.
+
+[27]
+
+F. Rahman, S. Hossain, J.-J. Tiang, and A.-A. Nahid, “Diabetes Prediction
+Using Feature Selection Algorithms and Boosting-Based Machine Learning
+Classifiers,” Diagnostics, vol. 15, no. 20, p. 2622, Oct. 2025, doi:
+10.3390/diagnostics15202622.
+
+[28]
+
+T. Althobaiti, S. Althobaiti, and M. M. Selim, “An optimized diabetes
+mellitus detection model for improved prediction of accuracy and clinical
+62
+
+decision-making,”
+
+Alexandria
+
+Eng.
+
+J.,
+
+vol.
+
+94,
+
+2024,
+
+doi:
+
+10.1016/j.aej.2024.03.044.
+[29]
+
+N. M. Nayan, A. Islam, M. U. Islam, E. Ahmed, M. M. Hossain, and M. Z.
+Alam, “SMOTE Oversampling and Near Miss Undersampling Based
+Diabetes Diagnosis from Imbalanced Dataset with XAI Visualization,” in
+Proceedings - IEEE Symposium on Computers and Communications, 2023,
+vol. 2023-July. doi: 10.1109/ISCC58397.2023.10218281.
+
+[30]
+
+X. Lv et al., “Unveiling diagnostic information for type 2 diabetes through
+interpretable machine learning,” Inf. Sci. (Ny)., vol. 690, 2025, doi:
+10.1016/j.ins.2024.121582.
+
+[31]
+
+H. M. Deberneh and I. Kim, “Prediction of type 2 diabetes based on machine
+learning algorithm,” Int. J. Environ. Res. Public Health, vol. 18, no. 6, 2021,
+doi: 10.3390/ijerph18063317.
+
+[32]
+
+I. N. Switrayana, R. Hammad, P. Irfan, T. T. Sujaka, and M. H. Nasri,
+“Comparative Analysis of Stock Price Prediction Using Deep Learning with
+Data Scaling Method,” JTIM J. Teknol. Inf. dan Multimed., vol. 7, no. 1, pp.
+78–90, Jan. 2025, doi: 10.35746/jtim.v7i1.650.
+
+[33]
+
+T. V. Sai Krishna, S. K. Pathuri, K. S. Sandeep, M. K. Padhi, I. Aswani, and
+D. Haritha, “An Efficient Machine Learning Classification Model for
+Diabetes Prediction,” in Proceedings - 2023 12th IEEE International
+Conference on Communication Systems and Network Technologies, CSNT
+2023, 2023. doi: 10.1109/CSNT57126.2023.10134615.
+
+[34]
+
+N. Zaferani, M. R. Afrash, and K. Moulaei, “Predicting and classifying type
+2 diabetes using a transparent ensemble model combining random forest, knearest neighbor, and neural networks,” Sci. Rep., vol. 16, no. 1, 2026, doi:
+10.1038/s41598-025-31562-5.
+
+[35]
+
+F. Sigrist, “Gradient and Newton boosting for classification and regression,”
+Expert Syst. Appl., vol. 167, 2021, doi: 10.1016/j.eswa.2020.114080.
+
+[36]
+
+Z. Arif Ali, Z. H. Abduljabbar, H. A. Tahir, A. Bibo Sallow, and S. M.
+Almufti, “eXtreme Gradient Boosting Algorithm with Machine Learning: a
+Review,” Acad. J. Nawroz Univ., vol. 12, no. 2, 2023, doi:
+63
+
+10.25007/ajnu.v12n2a1612.
+[37]
+
+T. Akiba, S. Sano, T. Yanase, T. Ohta, and M. Koyama, “Optuna: A Nextgeneration Hyperparameter Optimization Framework,” in Proceedings of the
+ACM SIGKDD International Conference on Knowledge Discovery and Data
+Mining, Jul. 2019, pp. 2623–2631. doi: 10.1145/3292500.3330701.
+
+[38]
+
+B. Toleva, I. Atanasov, I. Ivanov, and V. Hooper, “An Effective
+Methodology for Diabetes Prediction in the Case of Class Imbalance,”
+Bioengineering, vol. 12, no. 1, 2025, doi: 10.3390/bioengineering12010035.
+
+[39]
+
+E. R. Susanto and A. Cahyana, “Penerapan Algoritma XGBoost untuk
+Prediksi Diabetes: Analisis Confusion Matrix dan ROC Curve,” Fountain
+Informatics J., vol. 10, no. 1, 2025, doi: 10.21111/fij.v10i1.14311.
+
+[40]
+
+H. Baniecki, B. Sobieski, P. Szatkowski, P. Bombinski, and P. Biecek,
+“Interpretable machine learning for time-to-event prediction in medicine and
+healthcare,”
+
+Artif.
+
+Intell.
+
+Med.,
+
+vol.
+
+159,
+
+2025,
+
+doi:
+
+10.1016/j.artmed.2024.103026.
+
+64
+
+LAMPIRAN
+Lampiran 1. Deskripsi Dataset patient.csv
+Variabel
+
+Tipe Data
+
+Deskripsi
+
+Keterangan
+
+PatientGuid
+
+String
+
+Identitas unik untuk setiap
+pasien yang digunakan
+sebagai kunci utama dalam
+proses penggabungan data
+
+ID alfanumerik
+
+Age
+
+Integer
+
+Usia pasien pada saat
+pencatatan data
+
+0–120 tahun
+
+Gender
+
+Kategorikal
+
+Jenis kelamin pasien
+
+Male, Female,
+Unknown
+
+State
+
+Kategorikal
+
+Lokasi geografis pasien
+berdasarkan wilayah negara
+bagian
+
+Kode state (CA,
+TX, NY, dll)
+
+DMIndicator
+
+Biner
+(Target)
+
+Status diagnosis Diabetes
+Mellitus Tipe 2
+
+1 = Diabetes,
+0 = Non-diabetes
+
+Lampiran 2. Deskripsi Dataset diagnosis.csv
+Variabel
+
+Tipe
+Data
+
+Deskripsi
+
+Keterangan
+
+PatientGuid
+
+String
+
+Identitas unik pasien
+
+Digunakan sebagai
+kunci penggabungan
+data
+
+Icd9_001-139
+
+Biner
+(0/1)
+
+Penyakit infeksi dan
+parasit (rentang ICD-9:
+001–139)
+
+Menunjukkan
+keberadaan diagnosis
+
+Icd9_140-239
+
+Biner
+(0/1)
+
+Neoplasma (rentang
+ICD-9: 140–239)
+
+Riwayat kanker atau
+tumor
+
+Icd9_240-279
+
+Biner
+(0/1)
+
+Penyakit endokrin,
+nutrisi, dan metabolik
+
+Sangat relevan terhadap
+diabetes
+
+Icd9_280-289
+
+Biner
+(0/1)
+
+Penyakit darah dan
+organ pembentuk darah
+
+Misalnya anemia
+
+Icd9_290-319
+
+Biner
+(0/1)
+
+Gangguan mental,
+perilaku, dan
+perkembangan saraf
+
+Riwayat gangguan
+psikiatri
+
+Icd9_320-359
+
+Biner
+(0/1)
+
+Penyakit sistem saraf
+
+Kondisi neurologis
+
+65
+
+Icd9_360-389
+
+Biner
+(0/1)
+
+Penyakit mata dan
+telinga
+
+Gangguan sistem
+sensorik
+
+Icd9_390-459
+
+Biner
+(0/1)
+
+Penyakit sistem
+peredaran darah
+
+Berkaitan dengan
+hipertensi dan penyakit
+jantung
+
+Icd9_460-519
+
+Biner
+(0/1)
+
+Penyakit sistem
+pernapasan
+
+Gangguan paru-paru
+
+Icd9_520-579
+
+Biner
+(0/1)
+
+Penyakit sistem
+pencernaan
+
+Gangguan
+gastrointestinal
+
+Icd9_580-629
+
+Biner
+(0/1)
+
+Penyakit sistem
+genitourinari
+
+Termasuk komplikasi
+ginjal
+
+Icd9_630-679
+
+Biner
+(0/1)
+
+Komplikasi kehamilan,
+persalinan, dan masa
+nifas
+
+Kondisi obstetri
+
+Icd9_680-709
+
+Biner
+(0/1)
+
+Penyakit kulit dan
+jaringan subkutan
+
+Gangguan kulit
+
+Icd9_710-739
+
+Biner
+(0/1)
+
+Penyakit sistem
+muskuloskeletal
+
+Gangguan tulang dan
+sendi
+
+Icd9_740-759
+
+Biner
+(0/1)
+
+Kelainan bawaan
+
+Cacat sejak lahir
+
+Icd9_760-779
+
+Biner
+(0/1)
+
+Kondisi yang berasal
+dari periode perinatal
+
+Kondisi terkait
+kelahiran
+
+Icd9_780-799
+
+Biner
+(0/1)
+
+Gejala, tanda, dan
+temuan abnormal
+
+Gejala non-spesifik
+
+Icd9_800-899
+
+Biner
+(0/1)
+
+Cedera dan keracunan
+akibat faktor eksternal
+
+Riwayat trauma
+
+Icd9_E-V
+
+Biner
+(0/1)
+
+Penyebab eksternal
+cedera dan klasifikasi
+tambahan
+
+Kode E dan V
+
+Icd9_Unknown
+
+Biner
+(0/1)
+
+Kode diagnosis tidak
+diketahui atau tidak
+terklasifikasi
+
+Indikator kualitas data
+
+DiagnosisCount
+
+Integer
+
+Jumlah total diagnosis
+yang dimiliki pasien
+
+Menggambarkan beban
+penyakit
+
+Integer
+
+Jumlah total kunjungan
+medis pasien
+
+Tingkat interaksi
+dengan layanan
+kesehatan
+
+VisitCount
+
+66
+
+DiagnosisFreq
+
+Float
+
+Rata-rata jumlah
+diagnosis per kunjungan
+
+Indikator kompleksitas
+klinis
+
+AcuteCount
+
+Integer
+
+Jumlah diagnosis akut
+(kondisi sementara)
+
+Frekuensi penyakit akut
+
+AcuteFreq
+
+Float
+
+Rata-rata diagnosis akut
+per kunjungan
+
+Tingkat kejadian
+kondisi akut
+
+Lampiran 3. Deskripsi Dataset medication.csv
+Variabel
+
+Tipe
+Data
+
+Deskripsi
+
+Keterangan
+
+PatientGuid
+
+String
+
+Identitas unik
+pasien
+
+Digunakan sebagai kunci
+penggabungan data
+
+Medication_1
+hingga
+Medication_n
+
+Biner
+(0/1)
+
+Indikator
+apakah suatu
+obat pernah
+diresepkan
+kepada pasien
+
+Contoh: abacavir, abilify, acarbose,
+aceon, aciphex, acyclovir,
+adalimumab, adderall, advair, advil,
+albuterol, aldactone, aleve, allegra,
+allopurinol, amaryl, ambien,
+amiodarone, amitriptyline,
+amlodipine, amoxicillin, ampicillin,
+anastrozole, androgel, aspirin,
+atenolol, atorvastatin, azithromycin,
+furosemide, hydrochlorothiazide,
+ibuprofen, insulin, lantus, lisinopril,
+losartan, metformin, metoprolol,
+naproxen, omeprazole, pravastatin,
+simvastatin, spironolactone, dan
+lain-lain
+
+DMIndicator
+
+Biner
+
+Status
+diagnosis
+Diabetes
+Mellitus Tipe 2
+
+1 = Diabetes, 0 = Non-diabetes
+
+Lampiran 4. Deskripsi Dataset transcript.csv
+Kategori
+
+Variabel
+
+Deskripsi
+
+Anthropometric
+
+Height_Max,
+Height_Min,
+Height_Mean,
+Height_Std
+
+Tinggi badan
+pasien dalam
+berbagai nilai
+agregasi
+
+Relevansi
+terhadap
+Diabetes
+Digunakan
+sebagai dasar
+perhitungan
+BMI
+67
+
+Weight_Max,
+Weight_Min,
+Weight_Mean,
+Weight_Std
+
+Berat badan
+Faktor penting
+pasien dalam
+dalam risiko
+berbagai nilai
+T2DM
+agregasi
+Indeks Massa
+Tubuh (BMI)
+Prediktor
+BMI_Max, BMI_Min,
+yang dihitung
+utama risiko
+BMI_Mean, BMI_Std
+dari berat dan
+diabetes
+tinggi badan
+Perubahan
+berat badan
+Indikator tren
+Weight_Change
+antar
+kondisi pasien
+kunjungan
+SystolicBP_Max,
+Tekanan darah
+Berkaitan
+SystolicBP_Min,
+sistolik dalam
+Blood Pressure
+dengan risiko
+SystolicBP_Mean,
+berbagai
+hipertensi
+SystolicBP_Std
+agregasi
+DiastolicBP_Max,
+Tekanan darah
+Indikator
+DiastolicBP_Min,
+diastolik dalam
+tambahan
+DiastolicBP_Mean,
+berbagai
+kondisi
+DiastolicBP_Std
+agregasi
+kardiovaskular
+Indikator
+Perubahan
+SystolicBP_Change,
+perkembangan
+tekanan darah
+DiastolicBP_Change
+kondisi
+antar waktu
+kesehatan
+RespiratoryRate_Max,
+Indikator
+Laju
+RespiratoryRate_Min,
+kondisi
+Respiratory
+pernapasan
+RespiratoryRate_Mean,
+kesehatan
+pasien
+RespiratoryRate_Std
+umum
+Indikator
+Perubahan laju
+penurunan
+RespiratoryRate_Change
+pernapasan
+kondisi
+kesehatan
+Temperature_Max,
+Indikator
+Temperature_Min,
+Suhu tubuh
+Thermoregulation
+infeksi atau
+Temperature_Mean,
+pasien
+inflamasi
+Temperature_Std
+Perubahan
+Indikator
+Temperature_Change
+suhu tubuh
+perubahan
+antar waktu
+68
+
+kondisi
+kesehatan
+Derived Metrics
+
+BMI_Change
+
+Height_Change
+
+Perubahan
+BMI dari
+waktu ke
+waktu
+
+Penting untuk
+analisis tren
+risiko diabetes
+
+Perubahan
+tinggi badan
+
+Digunakan
+untuk
+pengecekan
+kualitas data
+
+69
+
+
