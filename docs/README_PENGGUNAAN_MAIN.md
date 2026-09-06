@@ -1,27 +1,10 @@
 # Panduan Sederhana `python main.py`
 
-Dokumen ini menjelaskan cara memakai `main.py` dengan bahasa sederhana.
+Dokumen ini menjelaskan cara menjalankan pipeline penelitian dari terminal atau menu interaktif.
 
-Tujuan utamanya:
-- memudahkan dosen atau penguji menjalankan pipeline tanpa harus hafal semua command
-- memudahkan melihat hasil tanpa membuka folder satu per satu
+Penelitian ini difokuskan pada **klasifikasi status Diabetes Mellitus Tipe 2 (T2DM)** berdasarkan data EHR yang sudah diringkas per pasien. Ini bukan prediksi kejadian diabetes di masa depan.
 
----
-
-## 1. Fungsi `main.py` itu apa?
-
-`main.py` adalah pintu utama untuk seluruh alur penelitian ini.
-
-Dari file ini, pengguna bisa:
-- menyiapkan dataset final
-- menjalankan EDA
-- melatih model
-- menjalankan eksperimen tambahan seperti leakage check, weighting, SMOTE, cross-validation, threshold tuning, error analysis, dan XAI
-- melihat hasil report dan visualisasi dari menu interaktif
-
----
-
-## 2. Cara paling mudah: mode menu interaktif
+## Cara Paling Mudah
 
 Jalankan:
 
@@ -29,9 +12,7 @@ Jalankan:
 python main.py
 ```
 
-Kalau command di atas dijalankan tanpa argumen tambahan, akan muncul menu interaktif.
-
-Menu utama berisi:
+Kalau dijalankan tanpa argumen, program menampilkan menu:
 
 1. `Jalankan Pipeline / Eksperimen`
 2. `Lihat Ringkasan Hasil`
@@ -39,246 +20,204 @@ Menu utama berisi:
 4. `Kesimpulan Umum`
 0. `Keluar`
 
-### Kegunaan tiap menu
+Menu ini dibuat agar dosen atau penguji bisa menjalankan dan melihat hasil tanpa harus membuka banyak folder.
 
-#### 1. Jalankan Pipeline / Eksperimen
-Dipakai untuk menjalankan tahap analisis.
+## Command Utama
 
-Submenu ini berisi:
-- `Prepare Data`
-- `EDA`
-- `Baseline Training`
-- `Leakage Audit`
-- `Leakage Check`
-- `Weighting Comparison`
-- `SMOTE Comparison`
-- `Cross Validation`
-- `Threshold Tuning`
-- `Error Analysis`
-- `XAI`
-- `Jalankan Semua Tahap Bersih`
-
-Artinya, pengguna tidak perlu hafal command satu per satu.
-
-#### 2. Lihat Ringkasan Hasil
-Dipakai untuk membaca report teks langsung dari terminal.
-
-Submenu ini dipakai untuk:
-- membaca report prepare data
-- membaca report EDA
-- membaca report training
-- membaca report leakage
-- membaca report weighting
-- membaca report SMOTE
-- membaca report cross-validation
-- membaca report threshold tuning
-- membaca report error analysis
-- membaca report XAI
-- melihat top fitur SHAP
-- melihat status file hasil
-
-#### 3. Buka Visualisasi / Report
-Dipakai untuk membuka file hasil secara langsung, misalnya:
-- SHAP summary plot
-- SHAP bar plot
-- SHAP dependence plot
-- force plot pasien individual
-- report XAI
-
-Ini berguna supaya pengguna tidak perlu masuk ke folder `outputs/` secara manual.
-
-#### 4. Kesimpulan Umum
-Dipakai untuk melihat ringkasan akhir penelitian dalam satu layar:
-- model terbaik
-- feature set yang dipakai
-- alasan pemilihan feature set
-- hasil holdout
-- hasil cross-validation
-- threshold final
-- ringkasan XAI
-
-Menu ini cocok dipakai saat demo atau sidang.
-
----
-
-## 3. Cara kedua: mode command biasa
-
-Kalau pengguna ingin langsung menjalankan command tertentu, `main.py` juga tetap mendukung mode CLI biasa.
-
-Contoh:
-
-### Prepare data
+### 1. Prepare Data
 
 ```powershell
 python main.py prepare-data
 ```
+
+Membangun dataset final dari data mentah.
 
 Output utama:
 - `outputs/app/prepare_data/final_dataset.csv`
 - `outputs/app/prepare_data/transcript_rebuilt.csv`
 - `outputs/app/prepare_data/prepare_report.md`
 
-### EDA
+### 2. EDA
 
 ```powershell
 python main.py eda
 ```
 
+Membuat ringkasan eksplorasi data.
+
 Output utama:
 - `outputs/app/eda/report.md`
 - `outputs/app/eda/eda_summary.json`
 
-### Baseline training
+### 3. Methodology Check
 
 ```powershell
-python main.py train
+python main.py methodology-check
 ```
+
+Memeriksa apakah split dan feature set utama sudah aman secara metodologi.
+
+Yang dicek:
+- satu pasien hanya muncul satu baris
+- development dan test tidak bercampur
+- split reproducible dengan seed yang sama
+- primary feature set tidak memakai `State`, `PhySp_*`, ICD, medication, `PatientGuid`, atau `PracticeGuid`
 
 Output utama:
-- `outputs/app/train/baseline_results.csv`
-- `outputs/app/train/report.md`
-- `outputs/app/train/best_model.pkl`
+- `outputs/app/train/methodology_checks_report.md`
+- `outputs/app/train/methodology_checks.json`
 
-### Leakage audit
-
-```powershell
-python main.py leakage-audit
-```
-
-### Leakage check
+### 4. Feature Set Screening
 
 ```powershell
-python main.py leakage-check
+python main.py feature-set-screen
 ```
 
-### Weighted vs unweighted
+Membandingkan kandidat feature set dengan model anchor yang sama. Tahap ini memilih feature set memakai development CV, bukan final test.
 
-```powershell
-python main.py weight-compare
-```
+Feature set kandidat:
+- `clinical_core`
+- `clinical_core_extreme`
+- `clinical_core_extreme_weight`
+- `full_transcript_comparator`
 
-### SMOTE comparison
+Output utama:
+- `outputs/app/train/feature_set_screening_summary.csv`
+- `outputs/app/train/feature_set_screening_report.md`
+- `outputs/app/train/selected_feature_set.json`
 
-```powershell
-python main.py smote-compare
-```
-
-### Cross-validation utama
+### 5. Cross-Validation Model
 
 ```powershell
 python main.py cv-main
 ```
 
-### Threshold tuning
+Membandingkan 6 algoritma pada feature set yang sama.
+
+Model yang dibandingkan:
+- Logistic Regression
+- SVM
+- KNN
+- Gradient Boosting
+- XGBoost
+- LightGBM
+
+Output utama:
+- `outputs/app/train/main_cv_summary.csv`
+- `outputs/app/train/main_cv_report.md`
+
+### 6. Imbalance Experiments
+
+```powershell
+python main.py weight-compare
+python main.py smote-compare
+```
+
+`weight-compare` membandingkan weighted vs unweighted.
+
+`smote-compare` membandingkan tanpa SMOTE vs dengan SMOTE.
+
+SMOTE hanya diterapkan pada training fold, bukan pada validation/test.
+
+### 7. Optuna
+
+```powershell
+python main.py optuna-tune
+```
+
+Melakukan tuning hyperparameter pada development CV dengan metric utama `PR-AUC`.
+
+Output utama:
+- `outputs/app/train/optuna_trials.csv`
+- `outputs/app/train/optuna_best_params.json`
+- `outputs/app/train/optuna_baseline_vs_tuned.csv`
+- `outputs/app/train/optuna_report.md`
+
+### 8. Threshold Tuning
 
 ```powershell
 python main.py threshold-tune
 ```
 
-### Error analysis
+Mencari threshold klasifikasi dari out-of-fold prediction di development set.
+
+Output utama:
+- `outputs/app/train/threshold_tuning_results.csv`
+- `outputs/app/train/threshold_tuning_best_thresholds.csv`
+- `outputs/app/train/threshold_tuning_report.md`
+
+### 9. Final Evaluation
+
+```powershell
+python main.py train
+```
+
+Melatih model final pada seluruh development data dan mengevaluasi sekali pada locked test.
+
+Output utama:
+- `outputs/app/train/final_test_results.csv`
+- `outputs/app/train/final_test_predictions.csv`
+- `outputs/app/train/report.md`
+- `outputs/app/train/best_model.pkl`
+- `outputs/app/train/calibration_*.png`
+
+### 10. Error Analysis
 
 ```powershell
 python main.py error-analysis
 ```
 
-### XAI / SHAP
+Membaca pola false positive dan false negative pada locked test.
+
+Output utama:
+- `outputs/app/train/error_analysis_summary.csv`
+- `outputs/app/train/error_analysis_predictions.csv`
+- `outputs/app/train/error_analysis_report.md`
+
+### 11. XAI / SHAP
 
 ```powershell
 python main.py xai
 ```
 
----
+Menjalankan interpretasi SHAP pada model final.
 
-## 4. Kapan pakai menu, kapan pakai command?
-
-### Pakai menu interaktif kalau:
-- ingin demo ke dosen
-- ingin lihat hasil dengan cepat
-- tidak ingin menghafal command
-
-### Pakai command biasa kalau:
-- ingin eksperimen teknis lebih cepat
-- ingin otomasi
-- ingin menjalankan tahap tertentu saja dari terminal
-
----
-
-## 5. Jalur paling praktis untuk dosen
-
-Kalau dosen hanya ingin melihat alur penelitian secara umum, langkah termudah adalah:
-
-1. Jalankan:
-
-```powershell
-python main.py
-```
-
-2. Pilih:
-- `4` untuk melihat **Kesimpulan Umum**
-- `2` untuk membaca report hasil
-- `3` untuk membuka gambar SHAP
-
-Dengan alur ini, dosen tidak perlu membuka folder output secara manual.
-
----
-
-## 6. File hasil penting yang biasanya dilihat
-
-### Report teks
-- `outputs/app/prepare_data/prepare_report.md`
-- `outputs/app/eda/report.md`
-- `outputs/app/train/report.md`
-- `outputs/app/train/main_cv_report.md`
-- `outputs/app/train/error_analysis_report.md`
+Output utama:
 - `outputs/app/train/xai/xai_report.md`
-- `outputs/app/train/general_conclusion.md`
-
-### Visualisasi SHAP
 - `outputs/app/train/xai/shap_summary_plot.png`
 - `outputs/app/train/xai/shap_summary_bar.png`
-- `outputs/app/train/xai/shap_dependence_Age.png`
-- `outputs/app/train/xai/shap_dependence_BMI_Mean.png`
-- `outputs/app/train/xai/shap_dependence_BMI_Max.png`
+- `outputs/app/train/xai/xai_force_*.html`
 
----
-
-## 7. Catatan penting
-
-- Model utama penelitian saat ini **tidak memakai ICD sebagai feature utama**
-- diagnosis dan medication tetap dipakai sebagai pembanding/sensitivitas, bukan fondasi model final
-- threshold final model utama saat ini adalah `0.50`
-- SHAP dipakai untuk interpretasi global dan lokal
-
----
-
-## 8. Jika ingin menjalankan seluruh pipeline bersih sekaligus
-
-Ada dua cara:
-
-### Lewat menu interaktif
-Pilih:
-- `Jalankan Pipeline / Eksperimen`
-- lalu pilih `Jalankan Semua Tahap Bersih`
-
-### Lewat script
+## Jalankan Semua Tahap
 
 ```powershell
-python scripts/run_clean_pipeline_end_to_end.py
+python main.py all
 ```
 
-Script ini akan menjalankan:
-- prepare data
-- EDA
-- training
-- leakage audit
-- leakage check
-- weighting comparison
-- SMOTE comparison
-- cross-validation
-- threshold tuning
-- error analysis
-- XAI
+Urutan yang dijalankan:
 
----
+1. prepare data
+2. EDA
+3. methodology check
+4. feature set screening
+5. cross-validation model
+6. leakage audit/check
+7. weighting comparison
+8. SMOTE comparison
+9. Optuna
+10. threshold tuning
+11. final evaluation
+12. error analysis
+13. XAI
 
-Dokumen ini dibuat agar penggunaan `main.py` mudah dipahami oleh pengguna non-teknis, termasuk dosen pembimbing dan penguji.
+## Catatan Penting
+
+Model utama sengaja tidak memakai:
+- `State`
+- `PhySp_*`
+- diagnosis / ICD
+- medication
+- `PatientGuid`
+- `PracticeGuid`
+
+Alasannya bukan karena kolom itu selalu tidak berguna, tetapi karena untuk model utama kolom tersebut berisiko menjadi shortcut terhadap lokasi, jalur layanan, diagnosis yang sudah jadi, obat, atau identitas fasilitas.

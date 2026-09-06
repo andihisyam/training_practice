@@ -1,0 +1,2998 @@
+Bisa. Di bawah ini saya buat **markdown yang memang ditulis seperti implementation brief untuk Codex**, jadi bukan cuma catatan penelitian. Isinya menjelaskan **apa yang harus diubah, kenapa, urutan eksperimen, feature set, evaluasi, output yang harus disimpan, sampai acceptance criteria**.
+
+Kamu bisa langsung copy-paste ini ke Codex.
+
+````markdown
+# Refactor Metodologi Eksperimen T2DM Classification
+
+## Tujuan
+
+Refactor pipeline penelitian agar metodologi eksperimen lebih bersih, reproducible,
+mudah dipertanggungjawabkan secara akademik, dan sesuai dengan tujuan penelitian.
+
+Penelitian ini difokuskan pada:
+
+> Klasifikasi status Diabetes Mellitus Tipe 2 (T2DM) berdasarkan karakteristik
+> demografis dan klinis pasien dari Electronic Health Record (EHR).
+
+Penelitian **bukan** ditujukan untuk memprediksi apakah pasien akan mengalami
+T2DM pada masa depan.
+
+Target tetap:
+
+```text
+DMIndicator
+0 = Non-DM
+1 = DM
+````
+
+Konteks penggunaan model adalah **screening/identifikasi status T2DM**, sehingga
+Sensitivity/Recall merupakan metric klinis yang penting.
+
+Namun pemilihan algoritma tidak boleh hanya berdasarkan Recall, karena model yang
+memprediksi seluruh pasien sebagai DM dapat menghasilkan Recall 100%.
+
+Primary metric untuk model selection:
+
+```text
+PR-AUC / Average Precision
+```
+
+Clinical priority metric:
+
+```text
+Recall / Sensitivity
+```
+
+---
+
+# 1. Prinsip Utama Refactor
+
+Pipeline lama jangan dihapus.
+
+Hasil lama harus dianggap sebagai:
+
+```text
+Preliminary / Exploratory Experiments
+```
+
+Bukan:
+
+```text
+Final Experimental Results
+```
+
+Pipeline baru harus memisahkan dengan jelas:
+
+```text
+DEVELOPMENT DATA
+vs
+FINAL LOCKED TEST DATA
+```
+
+Semua keputusan berikut WAJIB dilakukan hanya menggunakan development data:
+
+* feature set selection
+* model comparison
+* imbalance strategy selection
+* hyperparameter tuning
+* threshold tuning
+
+Final test hanya boleh digunakan setelah semua keputusan di atas sudah selesai.
+
+---
+
+# 2. Framing Penelitian
+
+Gunakan framing:
+
+> Binary classification of T2DM status based on demographic and clinical EHR
+> characteristics.
+
+Jangan menggunakan framing:
+
+```text
+future diabetes prediction
+future T2DM risk
+will develop diabetes
+prediksi pasien akan terkena DM
+prediksi kejadian T2DM di masa depan
+```
+
+Alasannya:
+
+Dataset tidak menyediakan timestamp diagnosis pertama T2DM yang cukup jelas untuk
+membentuk prediction window / observation window temporal.
+
+Model hanya mengetahui:
+
+```text
+DMIndicator = 0 / 1
+```
+
+sebagai status pasien.
+
+---
+
+# 3. Fitur yang Harus Dikeluarkan dari Primary Model
+
+## 3.1 Physician Specialty
+
+Drop seluruh fitur:
+
+```text
+PhySp_*
+```
+
+Contoh:
+
+```text
+PhySp_Internal_Medicine
+PhySp_General_Practice
+PhySp_*
+```
+
+### Alasan
+
+Physician Specialty berpotensi menjadi proxy terhadap status penyakit.
+
+Contoh shortcut:
+
+```text
+Pasien sudah DM
+    ↓
+lebih sering berkunjung ke Internal Medicine
+    ↓
+model melihat specialty
+    ↓
+model memprediksi DM
+```
+
+Karena kita tidak memiliki tanggal onset DM pertama yang dapat digunakan sebagai
+temporal cutoff, tidak dapat dipastikan apakah specialty muncul sebelum atau setelah
+pasien diketahui menderita DM.
+
+Primary model harus berfokus pada karakteristik pasien, bukan care pathway.
+
+---
+
+## 3.2 State
+
+Drop seluruh fitur:
+
+```text
+State_*
+```
+
+dan source column:
+
+```text
+State
+```
+
+### Alasan
+
+State dapat menjadi proxy terhadap:
+
+* lokasi geografis
+* practice tertentu
+* perbedaan populasi
+* perbedaan prevalensi
+* pola pencatatan EHR
+* karakteristik fasilitas kesehatan
+
+Model utama tidak boleh bergantung pada lokasi pasien.
+
+---
+
+## 3.3 PracticeGuid
+
+Jangan gunakan:
+
+```text
+PracticeGuid
+```
+
+sebagai predictor.
+
+Tetapi JANGAN hapus permanen dari intermediate dataset.
+
+Gunakan hanya sebagai metadata.
+
+Potential future use:
+
+```python
+GroupKFold(groups=PracticeGuid)
+```
+
+atau analisis generalisasi antar-practice.
+
+---
+
+## 3.4 Diagnosis / ICD
+
+Diagnosis tidak boleh menjadi predictor primary model.
+
+Drop feature family yang berasal dari:
+
+```text
+diagnosis
+ICD
+Dx_*
+Diag_*
+```
+
+atau nama lain yang setara dalam pipeline saat ini.
+
+### Alasan
+
+Diagnosis terlalu dekat dengan outcome dan berisiko menjadi target proxy / leakage.
+
+Diagnosis boleh tetap digunakan sebagai:
+
+```text
+leakage comparator
+sensitivity analysis
+exploratory experiment
+```
+
+tetapi bukan primary model.
+
+---
+
+## 3.5 Medication
+
+Medication tidak boleh menjadi predictor primary model.
+
+Drop seluruh feature family medication.
+
+### Alasan
+
+Obat tertentu dapat langsung mengindikasikan kondisi DM.
+
+Contoh:
+
+```text
+obat diabetes
+    ↓
+model
+    ↓
+prediksi DM
+```
+
+Ini merupakan shortcut yang terlalu dekat dengan target.
+
+Medication boleh tetap tersedia untuk leakage/sensitivity analysis lama.
+
+---
+
+# 4. Feature Engineering Transcript: Keputusan Baru
+
+Raw transcript memiliki multiple observations / visits per patient.
+
+Artinya satu pasien dapat memiliki:
+
+```text
+visit 1
+visit 2
+visit 3
+...
+visit N
+```
+
+Kemudian transcript diringkas menjadi patient-level features.
+
+Primary model harus menggunakan agregasi yang:
+
+1. mudah dijelaskan
+2. relatif stabil
+3. memiliki relevansi klinis
+4. tidak terlalu bergantung pada utilization pattern
+5. tidak redundant secara berlebihan
+
+---
+
+# 5. Primary Feature Set yang Direkomendasikan
+
+Primary candidate feature set:
+
+```text
+Age
+Gender
+
+BMI_Mean
+BMI_Max
+
+SystolicBP_Mean
+SystolicBP_Max
+
+DiastolicBP_Mean
+DiastolicBP_Max
+```
+
+Total secara konseptual:
+
+```text
+8 features
+```
+
+Catatan:
+
+Jika `Gender` di-one-hot encode menjadi:
+
+```text
+Gender_F
+Gender_M
+```
+
+atau bentuk lain, tetap anggap itu berasal dari satu source feature `Gender`.
+
+Jangan menganggap jumlah one-hot columns sebagai jumlah conceptual variables.
+
+---
+
+# 6. Alasan Pemilihan Primary Features
+
+## Age
+
+KEEP.
+
+Alasan:
+
+* demographic feature dasar
+* mudah diinterpretasikan
+* tidak membutuhkan histori pelayanan
+* hasil SHAP awal menunjukkan kontribusi yang kuat
+
+---
+
+## Gender
+
+KEEP.
+
+Alasan:
+
+* demographic characteristic dasar
+* mudah dijelaskan
+* bukan proxy fasilitas pelayanan
+
+---
+
+## BMI_Mean
+
+KEEP.
+
+Makna:
+
+> kondisi BMI tipikal pasien selama histori EHR yang tersedia.
+
+Karena satu pasien memiliki beberapa kunjungan, mean dapat merangkum kondisi umum.
+
+---
+
+## BMI_Max
+
+KEEP.
+
+Makna:
+
+> nilai BMI tertinggi yang pernah tercatat selama histori EHR.
+
+BMI_Max memberikan informasi yang berbeda dari BMI_Mean.
+
+Contoh:
+
+```text
+Patient A:
+BMI = 25, 25, 25, 25
+
+Mean = 25
+Max  = 25
+```
+
+vs
+
+```text
+Patient B:
+BMI = 20, 23, 25, 32
+
+Mean ≈ 25
+Max  = 32
+```
+
+Mean hampir sama, tetapi clinical history berbeda.
+
+---
+
+## SystolicBP_Mean
+
+KEEP.
+
+Makna:
+
+> tekanan darah sistolik tipikal pasien selama histori kunjungan.
+
+---
+
+## SystolicBP_Max
+
+KEEP.
+
+Makna:
+
+> tekanan darah sistolik tertinggi yang pernah tercatat.
+
+Mean dan Max membawa informasi yang berbeda.
+
+---
+
+## DiastolicBP_Mean
+
+KEEP.
+
+Makna:
+
+> tekanan darah diastolik tipikal pasien.
+
+---
+
+## DiastolicBP_Max
+
+KEEP.
+
+Makna:
+
+> tekanan darah diastolik tertinggi yang pernah tercatat.
+
+---
+
+# 7. Features yang Sebaiknya Tidak Masuk Primary Model
+
+## 7.1 Semua `*_Min`
+
+Drop dari primary feature set:
+
+```text
+BMI_Min
+Weight_Min
+SystolicBP_Min
+DiastolicBP_Min
+RespiratoryRate_Min
+Temperature_Min
+Height_Min
+...
+```
+
+### Alasan
+
+Minimum observation:
+
+* mudah dipengaruhi satu pengukuran ekstrem
+* dapat menjadi measurement noise
+* memiliki interpretasi yang lebih lemah untuk screening T2DM
+* sering redundant dengan Mean dan Max
+
+Jangan hapus dari intermediate dataset jika masih dibutuhkan untuk exploratory
+experiment.
+
+---
+
+# 8. Height Features
+
+Drop dari primary model:
+
+```text
+Height_Min
+Height_Max
+Height_Mean
+Height_NObs
+Height_Change
+```
+
+atau seluruh:
+
+```text
+Height_*
+```
+
+### Alasan
+
+Untuk pasien dewasa, tinggi badan relatif stabil.
+
+Perubahan tinggi longitudinal lebih mungkin merepresentasikan:
+
+* measurement variation
+* data entry differences
+* unit inconsistency
+* measurement noise
+
+Selain itu BMI sudah merepresentasikan hubungan antara Weight dan Height.
+
+Primary model tidak perlu menggunakan Height secara terpisah.
+
+---
+
+# 9. Weight Features
+
+Jangan masukkan Weight ke primary model terlebih dahulu.
+
+Feature family:
+
+```text
+Weight_*
+```
+
+harus tersedia hanya untuk eksperimen tambahan.
+
+### Alasan
+
+BMI secara matematis sudah membawa informasi Weight:
+
+```text
+BMI = Weight / Height²
+```
+
+Sehingga:
+
+```text
+BMI_Mean
+Weight_Mean
+```
+
+berpotensi membawa informasi yang redundant.
+
+Namun jangan menyimpulkan Weight tidak berguna tanpa eksperimen.
+
+Buat feature experiment khusus:
+
+```text
+Primary Clinical Set
+vs
+Primary Clinical Set + Weight
+```
+
+Contoh candidate tambahan:
+
+```text
+Weight_Mean
+Weight_Max
+```
+
+Jika penambahan Weight memberikan improvement yang sangat kecil, prioritaskan model
+tanpa Weight berdasarkan prinsip parsimony.
+
+---
+
+# 10. Change Features
+
+Untuk primary model, DROP semua feature:
+
+```text
+*_Change
+```
+
+Contoh:
+
+```text
+BMI_Change
+Weight_Change
+SystolicBP_Change
+DiastolicBP_Change
+Temperature_Change
+RespiratoryRate_Change
+Height_Change
+```
+
+### Masalah metodologis
+
+Implementasi Change saat ini pada dasarnya:
+
+```text
+mean(last year) - mean(first year)
+```
+
+Masalahnya observation period tiap patient tidak sama.
+
+Contoh:
+
+```text
+Patient A
+2009 BMI = 25
+2012 BMI = 30
+
+Change = +5 dalam 3 tahun
+```
+
+vs
+
+```text
+Patient B
+2011 BMI = 25
+2012 BMI = 30
+
+Change = +5 dalam 1 tahun
+```
+
+Current `Change` memberikan value yang sama:
+
+```text
++5
+```
+
+padahal rate of change berbeda.
+
+Masalah lain:
+
+Jika patient hanya memiliki data satu tahun:
+
+```text
+first year = last year
+```
+
+maka:
+
+```text
+Change = 0
+```
+
+Padahal `0` bisa berarti:
+
+```text
+benar-benar stabil
+```
+
+atau:
+
+```text
+hanya punya satu tahun observasi
+```
+
+Dua kondisi tersebut berbeda.
+
+### Future improvement
+
+Jika ingin menggunakan longitudinal change, buat feature baru:
+
+```text
+*_SlopePerYear
+```
+
+Contoh:
+
+```python
+slope = (last_value - first_value) / (last_year - first_year)
+```
+
+Hanya hitung apabila:
+
+```text
+last_year > first_year
+```
+
+dan pasien memiliki minimal dua observation year berbeda.
+
+Jangan implementasikan slope dalam primary refactor kecuali diminta secara eksplisit.
+
+---
+
+# 11. NObs Features
+
+Drop seluruh:
+
+```text
+*_NObs
+```
+
+dari primary model.
+
+Contoh:
+
+```text
+BMI_NObs
+SystolicBP_NObs
+DiastolicBP_NObs
+Weight_NObs
+...
+```
+
+### Alasan
+
+`NObs` bukan physiological measurement.
+
+NObs lebih dekat dengan:
+
+```text
+berapa sering pasien diperiksa
+```
+
+Potential shortcut:
+
+```text
+pasien memiliki chronic condition
+    ↓
+lebih sering datang
+    ↓
+lebih sering diukur
+    ↓
+NObs tinggi
+    ↓
+model memprediksi DM
+```
+
+Ini berpotensi membuat model mempelajari healthcare utilization daripada kondisi
+klinis pasien.
+
+NObs boleh tetap tersedia untuk secondary/sensitivity analysis.
+
+---
+
+# 12. Temperature Features
+
+Drop seluruh:
+
+```text
+Temperature_*
+```
+
+dari primary model.
+
+### Alasan
+
+Temperature lebih mudah dipengaruhi kondisi akut seperti:
+
+* infection
+* fever
+* acute illness
+* kondisi saat pemeriksaan
+
+dan memiliki interpretasi yang relatif lemah untuk primary T2DM classification.
+
+Tidak berarti temperature tidak memiliki hubungan statistik.
+
+Keputusan ini dibuat berdasarkan:
+
+```text
+clinical interpretability
+parsimony
+avoidance of weak proxy signals
+```
+
+---
+
+# 13. Respiratory Rate Features
+
+Drop seluruh:
+
+```text
+RespiratoryRate_*
+```
+
+dari primary model.
+
+### Alasan
+
+Respiratory rate dapat dipengaruhi:
+
+* acute respiratory illness
+* infection
+* anxiety
+* pulmonary disease
+* kondisi pemeriksaan
+
+dan bukan kandidat utama untuk screening status T2DM.
+
+Simpan jika ingin dilakukan supplementary feature experiment.
+
+---
+
+# 14. Smoking Features
+
+Smoking belum dimasukkan ke primary model.
+
+Raw data memiliki informasi smoking history.
+
+JANGAN langsung join semua record smoking ke final dataset.
+
+Potential future experiment:
+
+```text
+Primary Clinical Set
+vs
+Primary Clinical Set + Smoking
+```
+
+Smoking harus direpresentasikan dengan definisi yang jelas, misalnya:
+
+```text
+CurrentSmoker
+EverSmoker
+LatestSmokingStatus
+```
+
+Jika akan diimplementasikan, buat fungsi patient-level aggregation yang eksplisit.
+
+Contoh:
+
+```text
+ambil smoking status berdasarkan SmokeEffectiveYear terbaru
+```
+
+atau bentuk lain yang disepakati.
+
+Untuk refactor tahap pertama:
+
+```text
+Smoking = OPTIONAL / NOT INCLUDED
+```
+
+---
+
+# 15. Feature Set Experiments
+
+Jangan langsung menetapkan satu feature set tanpa pembandingan.
+
+Buat minimal 4 feature set candidate.
+
+---
+
+## Feature Set A — Clinical Core
+
+Gunakan:
+
+```text
+Age
+Gender
+
+BMI_Mean
+
+SystolicBP_Mean
+
+DiastolicBP_Mean
+```
+
+Tujuan:
+
+> baseline clinical model yang sangat sederhana.
+
+Conceptual feature count:
+
+```text
+5
+```
+
+---
+
+## Feature Set B — Clinical Core + Extreme
+
+Gunakan:
+
+```text
+Age
+Gender
+
+BMI_Mean
+BMI_Max
+
+SystolicBP_Mean
+SystolicBP_Max
+
+DiastolicBP_Mean
+DiastolicBP_Max
+```
+
+Conceptual feature count:
+
+```text
+8
+```
+
+Ini adalah:
+
+```text
+PRIMARY CANDIDATE FEATURE SET
+```
+
+Hipotesis:
+
+Mean menggambarkan typical patient condition.
+
+Max menggambarkan extreme/highest recorded condition.
+
+Feature set ini diharapkan mempertahankan informasi yang relevan tanpa membawa terlalu
+banyak redundant features.
+
+---
+
+## Feature Set C — Core + Weight
+
+Gunakan seluruh Set B ditambah:
+
+```text
+Weight_Mean
+Weight_Max
+```
+
+Tujuan:
+
+> menguji apakah raw Weight memberikan informasi tambahan setelah BMI sudah digunakan.
+
+Jika performa Set C hanya sedikit lebih tinggi daripada Set B, pilih Set B karena lebih
+parsimonious.
+
+---
+
+## Feature Set D — Full Transcript Comparator
+
+Gunakan transcript-derived features yang lebih lengkap tetapi tetap exclude:
+
+```text
+State
+PracticeGuid sebagai predictor
+Physician Specialty
+Diagnosis
+Medication
+```
+
+Set D boleh memasukkan lebih banyak transcript variables lama seperti:
+
+```text
+Height
+Weight
+BMI
+SystolicBP
+DiastolicBP
+RespiratoryRate
+Temperature
+```
+
+beserta feature engineering lama sesuai kebutuhan.
+
+Tetapi Set D hanya digunakan sebagai:
+
+```text
+complexity / sensitivity comparator
+```
+
+bukan otomatis primary model.
+
+---
+
+# 16. Feature Set Selection Rule
+
+Feature set selection dilakukan HANYA menggunakan:
+
+```text
+70% Development Data
+```
+
+dengan:
+
+```text
+Stratified 5-Fold Cross Validation
+```
+
+Jangan menggunakan final test.
+
+Metric utama:
+
+```text
+mean PR-AUC
+```
+
+Metric tambahan:
+
+```text
+std PR-AUC
+Recall
+Precision
+F1
+ROC-AUC
+```
+
+Selection rule:
+
+Jika feature set kompleks hanya memberikan improvement yang sangat kecil dibanding
+feature set sederhana, pilih feature set sederhana.
+
+Contoh:
+
+```text
+Set B
+PR-AUC = 0.468 ± 0.018
+
+Set D
+PR-AUC = 0.472 ± 0.025
+```
+
+Selisih:
+
+```text
+0.004
+```
+
+Jika improvement kecil dibanding variability antar-fold, prioritaskan Set B.
+
+Prinsip:
+
+```text
+PARSimony:
+jika performa hampir sama, pilih model/feature set yang lebih sederhana.
+```
+
+Jangan memilih feature set hanya karena mean PR-AUC terbesar secara numerik jika
+selisihnya sangat kecil.
+
+---
+
+# 17. Final Data Split
+
+Setelah final patient-level dataset tersedia:
+
+Gunakan:
+
+```text
+70% DEVELOPMENT
+30% FINAL TEST
+```
+
+dengan:
+
+```python
+train_test_split(
+    ...,
+    test_size=0.30,
+    stratify=y,
+    random_state=42,
+)
+```
+
+Terminologi:
+
+```text
+development_df
+test_df
+```
+
+Jangan menggunakan nama:
+
+```text
+train_df
+```
+
+untuk seluruh 70%, karena development data nantinya masih dibagi kembali menjadi
+train/validation melalui CV.
+
+---
+
+# 18. Locked Test Requirement
+
+Final 30% test harus dibuat sekali.
+
+Simpan patient IDs/index test agar split reproducible.
+
+Contoh artifact:
+
+```text
+artifacts/splits/development_patient_ids.csv
+artifacts/splits/test_patient_ids.csv
+```
+
+atau format setara.
+
+Semua eksperimen berikut hanya menggunakan development patient IDs:
+
+```text
+feature set selection
+model comparison
+SMOTE comparison
+class weighting comparison
+Optuna
+threshold tuning
+```
+
+Test IDs tidak boleh digunakan untuk mengambil keputusan tersebut.
+
+---
+
+# 19. Cross Validation
+
+Gunakan:
+
+```python
+StratifiedKFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=42,
+)
+```
+
+Hanya pada:
+
+```text
+development data
+```
+
+Tidak boleh pada seluruh dataset.
+
+Struktur:
+
+```text
+100% DATA
+    │
+    ├── 70% DEVELOPMENT
+    │        │
+    │        └── 5-Fold CV
+    │
+    └── 30% FINAL TEST
+             LOCKED
+```
+
+---
+
+# 20. Model Comparison
+
+Enam algoritma WAJIB tetap digunakan:
+
+```text
+1. Logistic Regression
+2. SVM
+3. KNN
+4. Gradient Boosting
+5. XGBoost
+6. LightGBM
+```
+
+Semua algoritma harus dibandingkan menggunakan:
+
+```text
+feature set yang sama
+development patient yang sama
+cross-validation folds yang sama
+preprocessing principles yang sama
+```
+
+Jangan membandingkan:
+
+```text
+XGBoost + Set B
+vs
+SVM + Set C
+```
+
+untuk menyimpulkan algoritma terbaik.
+
+Feature set harus dipilih lebih dulu.
+
+Setelah feature set dipilih:
+
+```text
+FINAL FEATURE SET
+        ↓
+LR
+SVM
+KNN
+Gradient Boosting
+XGBoost
+LightGBM
+```
+
+---
+
+# 21. Primary Metric Model Selection
+
+Primary metric:
+
+```text
+PR-AUC / Average Precision
+```
+
+Reason:
+
+Dataset memiliki class imbalance dan target positif DM merupakan kelas yang lebih
+sedikit.
+
+PR-AUC lebih informatif daripada Accuracy untuk evaluasi positive class.
+
+Secondary metrics:
+
+```text
+Recall / Sensitivity
+Precision
+F1
+ROC-AUC
+Specificity
+```
+
+Untuk model selection:
+
+1. prioritaskan mean PR-AUC
+2. lihat stability antar-fold
+3. lihat Recall karena konteks screening
+4. hindari memilih model dengan Recall tinggi tetapi Precision/Specificity sangat buruk
+
+---
+
+# 22. Imbalance Strategy Experiment
+
+Setelah algoritma kandidat terbaik ditemukan, lakukan eksperimen imbalance.
+
+Bandingkan minimal:
+
+## Condition A — Baseline
+
+```text
+SMOTE = OFF
+Class Weight = OFF
+```
+
+## Condition B — Class Weight
+
+```text
+SMOTE = OFF
+Class Weight = ON
+```
+
+## Condition C — SMOTE
+
+```text
+SMOTE = ON
+Class Weight = OFF
+```
+
+Optional:
+
+## Condition D — SMOTE + Weight
+
+```text
+SMOTE = ON
+Class Weight = ON
+```
+
+Condition D hanya boleh ada jika sengaja diuji sebagai kombinasi.
+
+Jangan tanpa sengaja membuat:
+
+```text
+SMOTE experiment
+```
+
+tetapi model masih mempunyai:
+
+```text
+scale_pos_weight
+class_weight
+```
+
+aktif.
+
+---
+
+# 23. SMOTE Requirement
+
+Jika menggunakan SMOTE:
+
+SMOTE HANYA boleh dilakukan pada training fold.
+
+Benar:
+
+```text
+CV fold:
+
+Train Fold
+    ↓
+Preprocessing
+    ↓
+SMOTE
+    ↓
+Model fit
+
+Validation Fold
+    ↓
+NO SMOTE
+    ↓
+Evaluation
+```
+
+Salah:
+
+```text
+SMOTE seluruh dataset
+    ↓
+CV
+```
+
+Gunakan `imblearn.pipeline.Pipeline` jika diperlukan agar SMOTE terjadi di dalam
+cross-validation secara benar.
+
+---
+
+# 24. Optuna
+
+Optuna hanya diterapkan pada:
+
+```text
+MODEL TERPILIH
+```
+
+Bukan keenam model.
+
+Alur:
+
+```text
+Compare 6 baseline models
+        ↓
+choose best algorithm
+        ↓
+choose imbalance strategy
+        ↓
+Optuna tuning
+```
+
+Primary Optuna objective:
+
+```text
+Average Precision / PR-AUC
+```
+
+Contoh:
+
+```python
+scoring="average_precision"
+```
+
+Gunakan cross-validation hanya pada development set.
+
+Jangan gunakan final test dalam Optuna objective.
+
+---
+
+# 25. Baseline vs Tuned Comparison
+
+Simpan performance sebelum dan sesudah Optuna.
+
+Contoh output:
+
+```text
+XGBoost Baseline
+PR-AUC = ...
+
+XGBoost Tuned
+PR-AUC = ...
+
+Difference
+Δ PR-AUC = ...
+```
+
+Juga simpan:
+
+```text
+Recall before
+Recall after
+
+F1 before
+F1 after
+```
+
+Tujuan:
+
+menjawab pertanyaan penelitian apakah hyperparameter optimization memberikan
+peningkatan performa.
+
+---
+
+# 26. Threshold Tuning
+
+Default threshold 0.50 tidak otomatis dianggap optimal.
+
+Karena konteks penelitian screening:
+
+```text
+Recall / Sensitivity
+```
+
+merupakan prioritas.
+
+Tetapi threshold tuning tidak boleh dilakukan pada final test.
+
+Gunakan:
+
+```text
+Out-of-Fold Predictions
+```
+
+dari development set.
+
+Contoh threshold candidates:
+
+```text
+0.20
+0.25
+0.30
+0.35
+0.40
+0.45
+0.50
+0.55
+0.60
+0.65
+0.70
+```
+
+Untuk setiap threshold hitung:
+
+```text
+Recall
+Precision
+Specificity
+F1
+F2
+NPV
+Confusion Matrix
+```
+
+---
+
+# 27. Threshold Selection Principle
+
+Jangan menggunakan:
+
+```text
+sort by F1 only
+```
+
+karena konteks screening menekankan sensitivity.
+
+Recommended strategy:
+
+Gunakan salah satu dari:
+
+```text
+maximize F2-score
+```
+
+atau:
+
+```text
+maintain high Recall
+while maximizing Specificity / Precision
+```
+
+Jika ada target clinically justified, misalnya:
+
+```text
+Recall >= X%
+```
+
+gunakan target tersebut.
+
+Tetapi jangan hard-code Recall target tanpa dokumentasi/justifikasi.
+
+Simpan seluruh threshold-performance table agar keputusan dapat ditelusuri.
+
+---
+
+# 28. Final Model Freeze
+
+Sebelum membuka final test, semua hal berikut harus sudah fixed:
+
+```text
+Feature Set
+Algorithm
+Imbalance Strategy
+Hyperparameters
+Threshold
+Preprocessing
+```
+
+Setelah fixed:
+
+```text
+DO NOT MODIFY THEM BASED ON TEST PERFORMANCE
+```
+
+---
+
+# 29. Final Training
+
+Setelah semua keputusan final:
+
+Train final model menggunakan:
+
+```text
+entire 70% development data
+```
+
+dengan:
+
+```text
+selected preprocessing
+selected feature set
+selected imbalance method
+selected hyperparameters
+```
+
+Kemudian evaluate sekali pada:
+
+```text
+30% final locked test
+```
+
+---
+
+# 30. Final Test Metrics
+
+Laporkan minimal:
+
+```text
+PR-AUC
+ROC-AUC
+
+Recall / Sensitivity
+Specificity
+
+Precision / PPV
+NPV
+
+F1-score
+F2-score
+
+Accuracy
+Confusion Matrix
+```
+
+Accuracy bukan primary metric.
+
+---
+
+# 31. Calibration
+
+Tambahkan evaluasi:
+
+```text
+Brier Score
+Calibration Curve
+```
+
+Probability output harus disebut:
+
+```text
+predicted probability of belonging to the T2DM class
+```
+
+Jangan ditulis sebagai:
+
+```text
+probability that the patient will develop diabetes in the future
+```
+
+karena model bukan future-risk prediction model.
+
+---
+
+# 32. SHAP
+
+SHAP hanya dilakukan pada:
+
+```text
+final selected model
+```
+
+setelah pipeline final selesai.
+
+Generate:
+
+```text
+SHAP summary plot
+SHAP beeswarm plot
+SHAP bar importance
+```
+
+jika memungkinkan.
+
+Interpretasi SHAP harus:
+
+```text
+feature contributes toward T2DM classification
+```
+
+bukan:
+
+```text
+feature causes diabetes
+```
+
+Contoh benar:
+
+> Higher BMI values tended to produce positive SHAP values, pushing model predictions
+> toward the T2DM class.
+
+Contoh salah:
+
+> Higher BMI causes diabetes according to SHAP.
+
+---
+
+# 33. Preprocessing Leakage Prevention
+
+Preprocessing yang belajar dari distribusi data harus fit hanya pada training fold.
+
+Contoh:
+
+```text
+Imputer
+Scaler
+Feature Transformer
+SMOTE
+```
+
+harus berada di pipeline yang benar.
+
+Ideal:
+
+```python
+Pipeline([
+    ("preprocessor", ...),
+    ("sampler", ...),   # if needed
+    ("model", ...),
+])
+```
+
+Setiap CV fold:
+
+```text
+fit preprocessing → train fold only
+transform validation → using fitted preprocessing
+```
+
+---
+
+# 34. Missingness
+
+Jika current pipeline melakukan feature dropping berdasarkan missingness:
+
+```text
+missing ratio > 40%
+```
+
+jangan mengubah cutoff tanpa dokumentasi.
+
+Refactor agar keputusan missingness jelas dan reproducible.
+
+Log:
+
+```text
+column
+missing_rate
+action
+```
+
+Contoh artifact:
+
+```text
+artifacts/preprocessing/missingness_report.csv
+```
+
+Catatan:
+
+Threshold 40% nantinya harus memiliki metodological justification atau sensitivity
+analysis.
+
+Untuk sekarang jangan otomatis mengubah threshold jika tidak diperlukan.
+
+---
+
+# 35. Physiological Value Filtering
+
+Current pipeline memiliki physiological range filtering.
+
+Pastikan filtering terdokumentasi.
+
+Contoh:
+
+```text
+Height
+Weight
+BMI
+SystolicBP
+DiastolicBP
+RespiratoryRate
+Temperature
+```
+
+Jangan mengubah cutoff diam-diam.
+
+Generate report:
+
+```text
+feature
+lower_bound
+upper_bound
+n_values_removed
+percentage_removed
+```
+
+Contoh output:
+
+```text
+artifacts/preprocessing/physiological_filter_report.csv
+```
+
+---
+
+# 36. Experiment Reproducibility
+
+Gunakan consistent seed:
+
+```python
+RANDOM_STATE = 42
+```
+
+Pastikan digunakan pada:
+
+```text
+train_test_split
+StratifiedKFold
+SMOTE
+models where supported
+Optuna sampler if appropriate
+```
+
+Simpan configuration experiment.
+
+---
+
+# 37. Recommended Code Organization
+
+Jika memungkinkan, refactor pipeline menjadi modul yang jelas.
+
+Contoh:
+
+```text
+practicefusion/
+│
+├── pipelines/
+│   ├── prepare_data.py
+│   ├── feature_sets.py
+│   ├── split_data.py
+│   ├── compare_features.py
+│   ├── compare_models.py
+│   ├── imbalance.py
+│   ├── tune_optuna.py
+│   ├── tune_threshold.py
+│   ├── final_evaluation.py
+│   └── explain_shap.py
+│
+├── modeling/
+│   ├── models.py
+│   ├── preprocessing.py
+│   ├── metrics.py
+│   └── utils.py
+```
+
+Tidak wajib mengikuti nama persis ini jika current architecture sudah berbeda.
+
+Utamakan compatibility dengan existing project.
+
+---
+
+# 38. Feature Set Configuration
+
+Buat feature sets secara eksplisit.
+
+Contoh:
+
+```python
+FEATURE_SET_A = [
+    "Age",
+    "Gender",
+    "BMI_Mean",
+    "SystolicBP_Mean",
+    "DiastolicBP_Mean",
+]
+
+FEATURE_SET_B = [
+    "Age",
+    "Gender",
+    "BMI_Mean",
+    "BMI_Max",
+    "SystolicBP_Mean",
+    "SystolicBP_Max",
+    "DiastolicBP_Mean",
+    "DiastolicBP_Max",
+]
+
+FEATURE_SET_C = FEATURE_SET_B + [
+    "Weight_Mean",
+    "Weight_Max",
+]
+```
+
+Untuk Gender:
+
+Jika pipeline memerlukan encoding sebelum training, feature config boleh menyimpan
+source column `Gender`, lalu encoding dilakukan oleh preprocessing pipeline.
+
+Jangan hard-code transformed names jika belum diperlukan.
+
+---
+
+# 39. Explicit Exclusion Rules
+
+Buat rule yang mudah diaudit.
+
+Contoh:
+
+```python
+EXCLUDED_PREFIXES_PRIMARY = (
+    "PhySp_",
+    "State_",
+    "Diagnosis_",
+    "Diag_",
+    "ICD_",
+    "Medication_",
+)
+
+EXCLUDED_COLUMNS_PRIMARY = {
+    "PracticeGuid",
+    "PatientGuid",
+    "DMIndicator",
+}
+```
+
+Catatan:
+
+```text
+PatientGuid
+```
+
+dan:
+
+```text
+DMIndicator
+```
+
+bukan predictor tetapi tetap diperlukan sebagai identifier/target.
+
+Jangan drop target sebelum modeling pipeline selesai.
+
+---
+
+# 40. Transcript Feature Exclusion
+
+Untuk primary model, jangan otomatis memasukkan seluruh generated transcript columns.
+
+Primary feature set harus explicit allow-list.
+
+Recommended:
+
+```text
+ALLOW LIST > BLOCK LIST
+```
+
+Artinya:
+
+Jangan:
+
+```python
+all_columns_except_some_exclusions
+```
+
+untuk primary model.
+
+Lebih aman:
+
+```python
+selected_features = FEATURE_SET_B
+```
+
+sehingga fitur baru yang muncul di dataset tidak otomatis masuk ke model.
+
+Ini penting untuk mencegah accidental leakage.
+
+---
+
+# 41. Experiment Output
+
+Setiap experiment harus menyimpan CSV / JSON result.
+
+Recommended structure:
+
+```text
+artifacts/
+│
+├── splits/
+│   ├── development_patient_ids.csv
+│   └── test_patient_ids.csv
+│
+├── feature_selection/
+│   ├── feature_set_cv_results.csv
+│   └── selected_feature_set.json
+│
+├── model_comparison/
+│   ├── model_cv_results.csv
+│   └── selected_model.json
+│
+├── imbalance/
+│   ├── imbalance_cv_results.csv
+│   └── selected_imbalance_strategy.json
+│
+├── optuna/
+│   ├── best_params.json
+│   ├── trials.csv
+│   └── baseline_vs_tuned.csv
+│
+├── threshold/
+│   ├── threshold_results.csv
+│   └── selected_threshold.json
+│
+├── final/
+│   ├── final_test_metrics.json
+│   ├── confusion_matrix.csv
+│   └── predictions.csv
+│
+└── shap/
+    ├── shap_summary.png
+    └── shap_importance.csv
+```
+
+Adapt folder paths to existing repository conventions if needed.
+
+---
+
+# 42. Required CV Result Format
+
+Feature set comparison table minimal columns:
+
+```text
+feature_set
+n_features
+mean_pr_auc
+std_pr_auc
+mean_recall
+std_recall
+mean_precision
+mean_f1
+mean_roc_auc
+```
+
+Model comparison:
+
+```text
+model
+feature_set
+mean_pr_auc
+std_pr_auc
+mean_recall
+std_recall
+mean_precision
+mean_specificity
+mean_f1
+mean_roc_auc
+```
+
+Imbalance experiment:
+
+```text
+strategy
+smote
+class_weight
+mean_pr_auc
+mean_recall
+mean_precision
+mean_specificity
+mean_f1
+```
+
+---
+
+# 43. Final Prediction Artifact
+
+Save patient-level final test predictions.
+
+Example:
+
+```text
+PatientGuid
+y_true
+y_probability
+y_pred
+threshold
+```
+
+Do not include confidential/unnecessary raw information.
+
+Purpose:
+
+* error analysis
+* reproducibility
+* confusion matrix verification
+* SHAP case selection if needed
+
+---
+
+# 44. Error Analysis
+
+After final evaluation, generate:
+
+```text
+True Positive
+True Negative
+False Positive
+False Negative
+```
+
+summary.
+
+Especially report:
+
+```text
+False Negative
+```
+
+because screening objective emphasizes sensitivity.
+
+Do not use error analysis to retune the model after final test.
+
+Error analysis is explanatory only.
+
+If test errors motivate future improvement, document them as future work rather than
+rerunning model selection on the same test.
+
+---
+
+# 45. No Test Feedback Loop
+
+STRICT RULE:
+
+After final test evaluation:
+
+```text
+DO NOT:
+change threshold
+change feature set
+change hyperparameters
+change imbalance method
+change algorithm
+```
+
+based on final test result.
+
+If major redesign is required after inspecting final test, the current test can no
+longer be considered untouched final test.
+
+Document this explicitly.
+
+---
+
+# 46. CLI / Command Structure
+
+If existing `main.py` already exposes commands, preserve backward compatibility where
+reasonable.
+
+Recommended new commands or equivalent:
+
+```bash
+python main.py build-final-dataset
+python main.py create-split
+python main.py compare-feature-sets
+python main.py compare-models
+python main.py compare-imbalance
+python main.py tune-optuna
+python main.py tune-threshold
+python main.py final-evaluate
+python main.py shap
+```
+
+Optional orchestration:
+
+```bash
+python main.py run-final-experiment
+```
+
+But orchestration must respect locked-test rules.
+
+---
+
+# 47. Pipeline Order
+
+Final pipeline order must be:
+
+```text
+RAW DATA
+    ↓
+DATA CLEANING
+    ↓
+PATIENT-LEVEL FEATURE ENGINEERING
+    ↓
+TARGET MERGE
+    ↓
+CREATE FIXED 70:30 SPLIT
+    ↓
+────────────────────────────────
+DEVELOPMENT ONLY
+────────────────────────────────
+    ↓
+FEATURE SET COMPARISON
+    ↓
+SELECT FEATURE SET
+    ↓
+COMPARE 6 ALGORITHMS
+    ↓
+SELECT ALGORITHM
+    ↓
+IMBALANCE STRATEGY COMPARISON
+    ↓
+SELECT IMBALANCE STRATEGY
+    ↓
+OPTUNA
+    ↓
+BASELINE vs TUNED COMPARISON
+    ↓
+OUT-OF-FOLD PREDICTIONS
+    ↓
+THRESHOLD TUNING
+    ↓
+FREEZE PIPELINE
+    ↓
+────────────────────────────────
+FINAL TEST
+────────────────────────────────
+    ↓
+TRAIN ON ALL DEVELOPMENT DATA
+    ↓
+EVALUATE ON LOCKED TEST ONCE
+    ↓
+FINAL METRICS
+    ↓
+CALIBRATION
+    ↓
+SHAP
+    ↓
+ERROR ANALYSIS
+```
+
+---
+
+# 48. Important Methodological Distinction
+
+Feature set selection and model selection are two separate questions.
+
+Wrong:
+
+```text
+XGBoost + Set B
+vs
+SVM + Set C
+vs
+LightGBM + Set D
+
+choose highest
+```
+
+Correct:
+
+```text
+STEP 1:
+choose feature set
+
+Set A
+vs
+Set B
+vs
+Set C
+vs
+Set D
+
+using controlled CV
+```
+
+then:
+
+```text
+STEP 2:
+using selected feature set:
+
+LR
+SVM
+KNN
+GB
+XGB
+LGBM
+```
+
+This is required so algorithm comparison is fair.
+
+---
+
+# 49. Selection of Feature Set B
+
+Do not hard-code Set B as winner before experiment.
+
+Set B is currently the methodological candidate.
+
+Expected logic:
+
+```text
+if Set B performance is competitive with more complex sets:
+    prefer Set B
+```
+
+Do not automatically force Set B if it is materially worse.
+
+Document actual results.
+
+Example reasonable conclusion:
+
+> Set D achieved a marginal PR-AUC increase of 0.003 compared with Set B, while using
+> substantially more features. Because the difference was small relative to
+> cross-validation variability, Set B was selected based on parsimony and clinical
+> interpretability.
+
+---
+
+# 50. Weight Experiment Interpretation
+
+If:
+
+```text
+Set B PR-AUC = 0.468
+Set C PR-AUC = 0.469
+```
+
+do not automatically choose C.
+
+Difference:
+
+```text
+0.001
+```
+
+is negligible.
+
+Prefer Set B unless Weight provides consistent improvement across folds.
+
+If:
+
+```text
+Set B = 0.45
+Set C = 0.49
+```
+
+then Weight may provide meaningful additional information and should be reconsidered.
+
+---
+
+# 51. Documentation Requirement
+
+Update experimental documentation.
+
+Create/update:
+
+```text
+docs/README_EKSPERIMEN_DAN_HASIL.md
+```
+
+with clear sections:
+
+```text
+1. Research Task
+2. Target Definition
+3. Excluded Features and Rationale
+4. Candidate Feature Sets
+5. Fixed Development/Test Split
+6. Feature Set Comparison
+7. Model Comparison
+8. Imbalance Handling
+9. Optuna
+10. Threshold Selection
+11. Final Test Evaluation
+12. Calibration
+13. SHAP
+14. Limitations
+```
+
+Do not overwrite old results without preserving historical context.
+
+Mark old results as:
+
+```text
+Preliminary experiments before methodological refactor
+```
+
+---
+
+# 52. Research Limitations to Preserve
+
+Document the following limitations:
+
+## No first T2DM diagnosis timestamp
+
+Therefore:
+
+```text
+this study performs status classification
+not future-event prediction
+```
+
+## No external validation
+
+Random patient split evaluates patients from the same overall dataset distribution.
+
+It does not prove generalization to entirely new practices/hospitals.
+
+## Physician Specialty excluded
+
+Because it may act as care-pathway proxy.
+
+## State excluded
+
+Because it may act as geographic/site proxy.
+
+## Diagnosis and Medication excluded
+
+Because of target proximity / leakage risk.
+
+---
+
+# 53. Future Optional Validation
+
+Do not make this mandatory for primary pipeline.
+
+Potential supplementary experiment:
+
+```python
+GroupKFold(groups=PracticeGuid)
+```
+
+Purpose:
+
+evaluate generalization across practices.
+
+Label output clearly as:
+
+```text
+site-aware / group-based validation
+```
+
+Do not replace primary 70:30 design unless explicitly requested.
+
+---
+
+# 54. Do Not Delete Useful Metadata
+
+Keep these in intermediate dataset:
+
+```text
+PatientGuid
+PracticeGuid
+```
+
+but do not use as predictors.
+
+Reasons:
+
+```text
+PatientGuid → reproducible split / error analysis
+PracticeGuid → group validation
+```
+
+---
+
+# 55. Do Not Optimize for Accuracy
+
+Accuracy may be reported but must not be:
+
+```text
+primary selection metric
+Optuna objective
+threshold optimization target
+```
+
+because classes are imbalanced and screening emphasizes positive-class detection.
+
+---
+
+# 56. Recall Interpretation
+
+Recall / Sensitivity:
+
+```text
+TP / (TP + FN)
+```
+
+Meaning:
+
+> among all true DM patients, how many are detected by the model?
+
+Because screening emphasizes avoiding missed DM cases, false negatives are important.
+
+But avoid maximizing Recall without considering Precision/Specificity.
+
+Example invalid model:
+
+```text
+predict everyone as DM
+Recall = 100%
+```
+
+but unusable.
+
+---
+
+# 57. Specificity
+
+Add Specificity explicitly if not currently implemented:
+
+```text
+Specificity = TN / (TN + FP)
+```
+
+Required because lowering threshold to increase Recall can create many false positives.
+
+Threshold selection should show the Recall-Specificity tradeoff.
+
+---
+
+# 58. F2 Score
+
+Add F2:
+
+```text
+F2 = weighted harmonic mean
+with Recall weighted more heavily than Precision
+```
+
+Can be used as one candidate criterion for screening threshold selection.
+
+Do not use F2 as replacement for PR-AUC in algorithm selection.
+
+---
+
+# 59. PR-AUC vs Threshold Metrics
+
+Remember:
+
+```text
+PR-AUC
+```
+
+is threshold-independent.
+
+Metrics such as:
+
+```text
+Recall
+Precision
+Specificity
+F1
+F2
+```
+
+depend on threshold.
+
+Therefore:
+
+```text
+Model selection → primarily PR-AUC
+Threshold selection → Recall/Specificity/F2 tradeoff
+```
+
+Keep these stages separate.
+
+---
+
+# 60. Recommended Code Comments
+
+Add comments near exclusion logic.
+
+Example:
+
+```python
+# Physician specialty is intentionally excluded from the primary model.
+# It may act as a care-pathway proxy because the dataset does not provide
+# a reliable first T2DM diagnosis timestamp.
+
+# State is intentionally excluded to reduce geographic/site shortcut learning.
+
+# PracticeGuid is retained as metadata but must never be used as a predictor.
+
+# Diagnosis and medication features are excluded from the primary model
+# because of their proximity to the T2DM label.
+```
+
+Avoid comments such as:
+
+```text
+not useful
+bad feature
+```
+
+because exclusion is methodological, not because the variables are universally useless.
+
+---
+
+# 61. Testing Requirements
+
+Add tests/checks where practical.
+
+## Test 1 — No forbidden primary features
+
+Primary features must not contain:
+
+```text
+PhySp_
+State_
+Diagnosis
+ICD
+Medication
+PracticeGuid
+PatientGuid
+DMIndicator
+```
+
+except `DMIndicator` as target and identifiers outside X.
+
+---
+
+## Test 2 — Test set never enters CV
+
+Assert:
+
+```text
+development IDs ∩ test IDs = empty
+```
+
+---
+
+## Test 3 — Reproducible split
+
+Running split creation twice with same seed must produce identical patient IDs.
+
+---
+
+## Test 4 — SMOTE only training fold
+
+Validation fold size/class membership must not be modified by SMOTE.
+
+---
+
+## Test 5 — No leakage identifier
+
+Before model fit:
+
+```text
+PatientGuid not in X.columns
+PracticeGuid not in X.columns
+DMIndicator not in X.columns
+```
+
+---
+
+# 62. Logging
+
+Every command should log:
+
+```text
+experiment name
+timestamp
+random seed
+dataset size
+positive class count
+negative class count
+feature set
+n_features
+model
+imbalance strategy
+CV folds
+metric results
+```
+
+For final test also log:
+
+```text
+selected threshold
+selected hyperparameters
+```
+
+---
+
+# 63. Existing Results
+
+Do not delete previous:
+
+```text
+XGBoost
+LightGBM
+SMOTE
+class weighting
+threshold
+SHAP
+```
+
+results.
+
+Move/label if necessary as:
+
+```text
+legacy_preliminary
+```
+
+or document:
+
+```text
+Results generated before final methodology refactor.
+```
+
+Purpose:
+
+* preserve experiment history
+* allow comparison
+* avoid data loss
+
+---
+
+# 64. Expected Primary Research Story
+
+The resulting research narrative should be:
+
+> Patient-level EHR records were transformed into demographic and clinically
+> interpretable features. Features strongly associated with healthcare pathways,
+> geographic origin, diagnosis information, medication history, and facility
+> identifiers were excluded from the primary model to reduce shortcut learning and
+> target-proxy effects.
+>
+> Candidate clinical feature sets were evaluated using stratified five-fold
+> cross-validation within the development cohort. A parsimonious feature set was
+> selected before comparing six machine learning algorithms.
+>
+> The best-performing algorithm was then evaluated under different class imbalance
+> strategies and optimized using Optuna. Decision threshold tuning was performed
+> using development out-of-fold predictions with emphasis on sensitivity for
+> screening.
+>
+> After all methodological decisions were fixed, the final model was evaluated once
+> on a locked holdout test set.
+
+---
+
+# 65. Expected Primary Feature Story
+
+Preferred final model should ideally be explainable as:
+
+```text
+The model classifies T2DM status based on:
+
+Age
+Gender
+BMI history
+Systolic blood pressure history
+Diastolic blood pressure history
+```
+
+Rather than:
+
+```text
+State
+clinic
+physician specialty
+diagnosis codes
+medication
+number of visits
+```
+
+The aim is not merely maximizing predictive score.
+
+The aim is obtaining:
+
+```text
+reasonable performance
++
+clinical interpretability
++
+low shortcut risk
++
+methodological defensibility
+```
+
+---
+
+# 66. Priority Order for Implementation
+
+Implement in this order.
+
+## Phase 1 — Feature Refactor
+
+1. Define explicit feature sets A/B/C/D.
+2. Exclude State.
+3. Exclude Physician Specialty.
+4. Exclude PracticeGuid as predictor.
+5. Exclude Diagnosis.
+6. Exclude Medication.
+7. Ensure primary sets exclude `*_Min`, `*_Change`, `*_NObs`.
+8. Primary Set B uses 8 conceptual features.
+
+---
+
+## Phase 2 — Data Split
+
+1. Create fixed 70:30 stratified split.
+2. Persist PatientGuid IDs.
+3. Ensure final test is locked.
+
+---
+
+## Phase 3 — Feature Set Selection
+
+1. Evaluate A/B/C/D on development data.
+2. Use 5-fold CV.
+3. Save mean ± std metrics.
+4. Select feature set based on PR-AUC + stability + parsimony.
+
+---
+
+## Phase 4 — Model Comparison
+
+Compare:
+
+```text
+LR
+SVM
+KNN
+Gradient Boosting
+XGBoost
+LightGBM
+```
+
+on selected feature set only.
+
+---
+
+## Phase 5 — Imbalance
+
+Compare:
+
+```text
+baseline
+weight
+SMOTE
+optional SMOTE + weight
+```
+
+fairly.
+
+---
+
+## Phase 6 — Optuna
+
+Tune selected model only.
+
+Use PR-AUC / average precision objective.
+
+---
+
+## Phase 7 — Threshold
+
+Generate development OOF predictions.
+
+Evaluate multiple thresholds.
+
+Focus on sensitivity while preserving reasonable specificity/precision.
+
+---
+
+## Phase 8 — Final Evaluation
+
+Freeze everything.
+
+Train on complete development data.
+
+Evaluate once on final test.
+
+---
+
+## Phase 9 — Explainability
+
+Run:
+
+```text
+SHAP
+calibration
+error analysis
+```
+
+without using final-test insights for retuning.
+
+---
+
+# 67. Acceptance Criteria
+
+The refactor is complete only if all conditions below are satisfied.
+
+### Data
+
+* [ ] one patient corresponds to one modeling row
+* [ ] target is `DMIndicator`
+* [ ] development/test patient IDs are fixed and reproducible
+* [ ] no patient exists in both development and test
+
+### Features
+
+* [ ] `PhySp_*` excluded from primary model
+* [ ] `State_*` excluded
+* [ ] `PracticeGuid` excluded from predictors
+* [ ] diagnosis features excluded
+* [ ] medication features excluded
+* [ ] PatientGuid excluded from predictors
+* [ ] primary Set B contains Age, Gender, BMI Mean/Max, Systolic Mean/Max,
+  Diastolic Mean/Max
+* [ ] feature sets are explicit allow-lists
+
+### CV
+
+* [ ] CV only uses development data
+* [ ] 5-fold stratified CV
+* [ ] final test does not appear in feature selection
+* [ ] final test does not appear in model selection
+* [ ] final test does not appear in Optuna
+* [ ] final test does not appear in threshold tuning
+
+### Model Comparison
+
+* [ ] all six algorithms use same selected feature set
+* [ ] all six algorithms use same CV framework
+* [ ] PR-AUC is primary comparison metric
+
+### Imbalance
+
+* [ ] baseline, class weight, and SMOTE are separated
+* [ ] SMOTE is applied only inside training folds
+* [ ] no accidental class weight during pure-SMOTE condition
+
+### Optuna
+
+* [ ] Optuna runs only on selected algorithm
+* [ ] Optuna uses development CV
+* [ ] Optuna objective is PR-AUC / Average Precision
+* [ ] baseline vs tuned result is saved
+
+### Threshold
+
+* [ ] threshold selected from development predictions
+* [ ] final test is not used for threshold selection
+* [ ] Recall, Specificity, Precision, F1, and F2 are reported per candidate threshold
+
+### Final Test
+
+* [ ] final configuration frozen before test
+* [ ] test evaluated once
+* [ ] final PR-AUC reported
+* [ ] final ROC-AUC reported
+* [ ] final Recall reported
+* [ ] final Specificity reported
+* [ ] final Precision reported
+* [ ] final NPV reported
+* [ ] final F1 reported
+* [ ] final F2 reported
+* [ ] confusion matrix saved
+
+### Interpretation
+
+* [ ] SHAP run only on final selected model
+* [ ] no causal claims derived from SHAP
+* [ ] calibration curve generated
+* [ ] Brier Score reported
+
+### Documentation
+
+* [ ] old experiments preserved
+* [ ] old results marked preliminary
+* [ ] methodological rationale documented
+* [ ] exclusions documented
+* [ ] final selected feature set documented
+* [ ] final threshold documented
+* [ ] final hyperparameters documented
+
+---
+
+# 68. Important: Do Not Make Unrequested Methodological Changes
+
+Before making large changes outside this specification:
+
+* inspect current repository structure
+* preserve existing working commands where possible
+* avoid deleting historical artifacts
+* avoid silently renaming columns
+* avoid changing raw data
+* avoid changing physiological cutoffs without explicit justification
+* avoid changing missingness threshold without documenting it
+
+If current implementation differs from assumptions in this specification, first adapt
+the implementation to the repository architecture rather than force an unnecessary
+rewrite.
+
+---
+
+# 69. Final Desired Experimental Flow
+
+The final project should behave conceptually as:
+
+```text
+                            RAW EHR
+                               │
+                               ▼
+                     Patient-level Features
+                               │
+                               ▼
+                     T2DM Status Classification
+                               │
+                               ▼
+                    Fixed 70 / 30 Patient Split
+                               │
+             ┌─────────────────┴─────────────────┐
+             │                                   │
+             ▼                                   ▼
+       DEVELOPMENT 70%                       TEST 30%
+             │                                  LOCKED
+             ▼                                    │
+      Feature Set Comparison                      │
+       A vs B vs C vs D                           │
+             │                                    │
+             ▼                                    │
+      Select Feature Set                          │
+             │                                    │
+             ▼                                    │
+      Compare 6 Algorithms                        │
+             │                                    │
+             ▼                                    │
+      Select Best Model                           │
+             │                                    │
+             ▼                                    │
+      Imbalance Experiment                        │
+             │                                    │
+             ▼                                    │
+           Optuna                                 │
+             │                                    │
+             ▼                                    │
+      Threshold Tuning                            │
+             │                                    │
+             ▼                                    │
+       FREEZE PIPELINE                            │
+             │                                    │
+             └────────────────────────────────────┤
+                                                  ▼
+                                          FINAL TEST ONCE
+                                                  │
+                                                  ▼
+                                             Final Metrics
+                                                  │
+                                  ┌───────────────┼───────────────┐
+                                  ▼               ▼               ▼
+                              Calibration        SHAP       Error Analysis
+```
+
+---
+
+# 70. Core Methodological Rule
+
+The most important rule of this entire refactor:
+
+> Development data is where decisions are made.
+>
+> Final test data is where already-made decisions are evaluated.
+
+Do not use final test performance to decide:
+
+```text
+which feature set
+which algorithm
+which imbalance strategy
+which hyperparameters
+which threshold
+```
+
+The test set must remain independent until the final evaluation.
+
+```
+
+Kalau dikasih ke Codex, brief ini sudah cukup detail untuk membuat dia paham **bukan hanya “hapus kolom ini”**, tetapi juga *kenapa* perubahan dilakukan dan bagaimana pipeline final yang kita mau.
+```

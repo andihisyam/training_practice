@@ -15,9 +15,12 @@ from practicefusion.pipelines.prepare_data import run_prepare_data
 from practicefusion.pipelines.train import (
     describe_feature_set,
     run_error_analysis,
+    run_feature_set_screening,
     run_feature_leakage_audit,
     run_leakage_check,
+    run_methodology_checks,
     run_main_cv,
+    run_optuna_tuning,
     run_smote_comparison,
     run_threshold_tuning,
     run_training,
@@ -43,18 +46,22 @@ except ImportError:
 console = Console() if HAS_RICH else None
 
 APP_TITLE = "PracticeFusion Research Runner"
-APP_SUBTITLE = "Prediksi Diabetes Mellitus Tipe 2 dengan XAI"
+APP_SUBTITLE = "Klasifikasi Diabetes Mellitus Tipe 2 dengan XAI"
 
 REPORT_PATHS = {
     "Kesimpulan umum": TRAIN_OUTPUT_DIR / "general_conclusion.md",
     "Ringkasan penelitian": TRAIN_OUTPUT_DIR / "rebuild_research_summary.md",
     "Report prepare data": PREPARE_OUTPUT_DIR / "prepare_report.md",
     "Report EDA": EDA_OUTPUT_DIR / "report.md",
+    "Report feature set screening": TRAIN_OUTPUT_DIR / "feature_set_screening_report.md",
+    "Report methodology check": TRAIN_OUTPUT_DIR / "methodology_checks_report.md",
     "Report training": TRAIN_OUTPUT_DIR / "report.md",
     "Report leakage audit": TRAIN_OUTPUT_DIR / "leakage_audit_report.md",
+    "Report leakage check": TRAIN_OUTPUT_DIR / "leakage_check_report.md",
     "Report weighting": TRAIN_OUTPUT_DIR / "weighting_comparison_report.md",
     "Report SMOTE": TRAIN_OUTPUT_DIR / "smote_comparison_report.md",
     "Report cross validation": TRAIN_OUTPUT_DIR / "main_cv_report.md",
+    "Report Optuna": TRAIN_OUTPUT_DIR / "optuna_report.md",
     "Report threshold tuning": TRAIN_OUTPUT_DIR / "threshold_tuning_report.md",
     "Report error analysis": TRAIN_OUTPUT_DIR / "error_analysis_report.md",
     "Report XAI": TRAIN_OUTPUT_DIR / "xai" / "xai_report.md",
@@ -64,8 +71,8 @@ VISUAL_PATHS = {
     "SHAP Summary Plot": TRAIN_OUTPUT_DIR / "xai" / "shap_summary_plot.png",
     "SHAP Summary Bar Plot": TRAIN_OUTPUT_DIR / "xai" / "shap_summary_bar.png",
     "SHAP Dependence Age": TRAIN_OUTPUT_DIR / "xai" / "shap_dependence_Age.png",
-    "SHAP Dependence BMI_Mean": TRAIN_OUTPUT_DIR / "xai" / "shap_dependence_BMI_Mean.png",
     "SHAP Dependence BMI_Max": TRAIN_OUTPUT_DIR / "xai" / "shap_dependence_BMI_Max.png",
+    "SHAP Dependence DiastolicBP_Mean": TRAIN_OUTPUT_DIR / "xai" / "shap_dependence_DiastolicBP_Mean.png",
     "Force Plot TP": TRAIN_OUTPUT_DIR / "xai" / "xai_force_tp_high_confidence.html",
     "Force Plot FN": TRAIN_OUTPUT_DIR / "xai" / "xai_force_fn_borderline.html",
     "Force Plot FP": TRAIN_OUTPUT_DIR / "xai" / "xai_force_fp_high_confidence.html",
@@ -108,16 +115,19 @@ def run_pipeline_menu() -> None:
             options=[
                 ("1", "Prepare Data"),
                 ("2", "EDA"),
-                ("3", "Baseline Training"),
-                ("4", "Leakage Audit"),
-                ("5", "Leakage Check"),
-                ("6", "Weighting Comparison"),
-                ("7", "SMOTE Comparison"),
-                ("8", "Cross Validation"),
-                ("9", "Threshold Tuning"),
-                ("10", "Error Analysis"),
-                ("11", "XAI"),
-                ("12", "Jalankan Semua Tahap Bersih"),
+                ("3", "Feature Set Screening"),
+                ("4", "Cross Validation Model"),
+                ("5", "Methodology Check"),
+                ("6", "Leakage Audit"),
+                ("7", "Leakage Check"),
+                ("8", "Weighting Comparison"),
+                ("9", "SMOTE Comparison"),
+                ("10", "Optuna Tuning"),
+                ("11", "Threshold Tuning"),
+                ("12", "Final Evaluation"),
+                ("13", "Error Analysis"),
+                ("14", "XAI"),
+                ("15", "Jalankan Semua Tahap Bersih"),
                 ("0", "Kembali"),
             ],
         )
@@ -128,16 +138,19 @@ def run_pipeline_menu() -> None:
         actions: dict[str, tuple[str, Callable[[], Any]]] = {
             "1": ("Prepare Data", lambda: run_prepare_data(final_dataset_path=APP_FINAL_DATASET_PATH)),
             "2": ("EDA", lambda: run_eda(dataset_path=APP_FINAL_DATASET_PATH, out_dir=EDA_OUTPUT_DIR)),
-            "3": ("Baseline Training", lambda: run_training(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "4": ("Leakage Audit", lambda: run_feature_leakage_audit(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "5": ("Leakage Check", lambda: run_leakage_check(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "6": ("Weighting Comparison", lambda: run_weighting_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "7": ("SMOTE Comparison", lambda: run_smote_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "8": ("Cross Validation", lambda: run_main_cv(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "9": ("Threshold Tuning", lambda: run_threshold_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "10": ("Error Analysis", lambda: run_error_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR, thresholds=[0.50, 0.60])),
-            "11": ("XAI", lambda: run_xai_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR, threshold=0.50)),
-            "12": ("Semua Tahap Bersih", run_all_clean_steps),
+            "3": ("Feature Set Screening", lambda: run_feature_set_screening(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "4": ("Cross Validation Model", lambda: run_main_cv(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "5": ("Methodology Check", lambda: run_methodology_checks(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "6": ("Leakage Audit", lambda: run_feature_leakage_audit(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "7": ("Leakage Check", lambda: run_leakage_check(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "8": ("Weighting Comparison", lambda: run_weighting_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "9": ("SMOTE Comparison", lambda: run_smote_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "10": ("Optuna Tuning", lambda: run_optuna_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "11": ("Threshold Tuning", lambda: run_threshold_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "12": ("Final Evaluation", lambda: run_training(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "13": ("Error Analysis", lambda: run_error_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "14": ("XAI", lambda: run_xai_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "15": ("Semua Tahap Bersih", run_all_clean_steps),
         }
 
         label, action = actions.get(choice, (None, None))
@@ -156,17 +169,21 @@ def run_results_menu() -> None:
                 ("1", "Lihat ringkasan penelitian"),
                 ("2", "Lihat report prepare data"),
                 ("3", "Lihat report EDA"),
-                ("4", "Lihat report training"),
-                ("5", "Lihat report leakage audit"),
-                ("6", "Lihat report weighting"),
-                ("7", "Lihat report SMOTE"),
-                ("8", "Lihat report cross validation"),
-                ("9", "Lihat report threshold tuning"),
-                ("10", "Lihat report error analysis"),
-                ("11", "Lihat report XAI"),
-                ("12", "Lihat top fitur SHAP"),
-                ("13", "Lihat status artefak"),
-                ("14", "Lihat kesimpulan umum"),
+                ("4", "Lihat report feature set screening"),
+                ("5", "Lihat report methodology check"),
+                ("6", "Lihat report cross validation"),
+                ("7", "Lihat report Optuna"),
+                ("8", "Lihat report threshold tuning"),
+                ("9", "Lihat report training"),
+                ("10", "Lihat report leakage audit"),
+                ("11", "Lihat report leakage check"),
+                ("12", "Lihat report weighting"),
+                ("13", "Lihat report SMOTE"),
+                ("14", "Lihat report error analysis"),
+                ("15", "Lihat report XAI"),
+                ("16", "Lihat top fitur SHAP"),
+                ("17", "Lihat status artefak"),
+                ("18", "Lihat kesimpulan umum"),
                 ("0", "Kembali"),
             ],
         )
@@ -178,23 +195,27 @@ def run_results_menu() -> None:
             "1": "Ringkasan penelitian",
             "2": "Report prepare data",
             "3": "Report EDA",
-            "4": "Report training",
-            "5": "Report leakage audit",
-            "6": "Report weighting",
-            "7": "Report SMOTE",
-            "8": "Report cross validation",
-            "9": "Report threshold tuning",
-            "10": "Report error analysis",
-            "11": "Report XAI",
+            "4": "Report feature set screening",
+            "5": "Report methodology check",
+            "6": "Report cross validation",
+            "7": "Report Optuna",
+            "8": "Report threshold tuning",
+            "9": "Report training",
+            "10": "Report leakage audit",
+            "11": "Report leakage check",
+            "12": "Report weighting",
+            "13": "Report SMOTE",
+            "14": "Report error analysis",
+            "15": "Report XAI",
         }
 
         if choice in report_choices:
             show_text_file(REPORT_PATHS[report_choices[choice]])
-        elif choice == "12":
+        elif choice == "16":
             show_top_shap_features()
-        elif choice == "13":
+        elif choice == "17":
             show_artifact_status()
-        elif choice == "14":
+        elif choice == "18":
             show_general_conclusion()
         else:
             print_message("Pilihan tidak dikenali. Coba lagi.")
@@ -208,8 +229,8 @@ def run_visual_menu() -> None:
                 ("1", "Buka SHAP Summary Plot"),
                 ("2", "Buka SHAP Summary Bar Plot"),
                 ("3", "Buka SHAP Dependence Age"),
-                ("4", "Buka SHAP Dependence BMI_Mean"),
-                ("5", "Buka SHAP Dependence BMI_Max"),
+                ("4", "Buka SHAP Dependence BMI_Max"),
+                ("5", "Buka SHAP Dependence DiastolicBP_Mean"),
                 ("6", "Buka Force Plot TP"),
                 ("7", "Buka Force Plot FN"),
                 ("8", "Buka Force Plot FP"),
@@ -226,8 +247,8 @@ def run_visual_menu() -> None:
             "1": VISUAL_PATHS["SHAP Summary Plot"],
             "2": VISUAL_PATHS["SHAP Summary Bar Plot"],
             "3": VISUAL_PATHS["SHAP Dependence Age"],
-            "4": VISUAL_PATHS["SHAP Dependence BMI_Mean"],
-            "5": VISUAL_PATHS["SHAP Dependence BMI_Max"],
+            "4": VISUAL_PATHS["SHAP Dependence BMI_Max"],
+            "5": VISUAL_PATHS["SHAP Dependence DiastolicBP_Mean"],
             "6": VISUAL_PATHS["Force Plot TP"],
             "7": VISUAL_PATHS["Force Plot FN"],
             "8": VISUAL_PATHS["Force Plot FP"],
@@ -246,19 +267,21 @@ def run_all_clean_steps() -> dict[str, Any]:
     results: dict[str, Any] = {}
     results["prepare_data"] = run_prepare_data(final_dataset_path=APP_FINAL_DATASET_PATH)
     results["eda"] = run_eda(dataset_path=APP_FINAL_DATASET_PATH, out_dir=EDA_OUTPUT_DIR)
-    results["training"] = run_training(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
+    results["methodology_check"] = run_methodology_checks(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
+    results["feature_set_screening"] = run_feature_set_screening(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
+    results["cv"] = run_main_cv(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["leakage_audit"] = run_feature_leakage_audit(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["leakage_check"] = run_leakage_check(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["weighting"] = run_weighting_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["smote"] = run_smote_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
-    results["cv"] = run_main_cv(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
+    results["optuna"] = run_optuna_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["threshold"] = run_threshold_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
+    results["training"] = run_training(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["error_analysis"] = run_error_analysis(
         dataset_path=APP_FINAL_DATASET_PATH,
         out_dir=TRAIN_OUTPUT_DIR,
-        thresholds=[0.50, 0.60],
     )
-    results["xai"] = run_xai_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR, threshold=0.50)
+    results["xai"] = run_xai_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     return results
 
 
@@ -332,10 +355,16 @@ def show_artifact_status() -> None:
         "Final dataset": APP_FINAL_DATASET_PATH,
         "Prepare report": REPORT_PATHS["Report prepare data"],
         "EDA report": REPORT_PATHS["Report EDA"],
+        "Feature set screening report": REPORT_PATHS["Report feature set screening"],
+        "Methodology check report": REPORT_PATHS["Report methodology check"],
+        "CV report": REPORT_PATHS["Report cross validation"],
+        "Optuna report": REPORT_PATHS["Report Optuna"],
+        "Threshold report": REPORT_PATHS["Report threshold tuning"],
         "Training report": REPORT_PATHS["Report training"],
+        "Leakage audit report": REPORT_PATHS["Report leakage audit"],
+        "Leakage check report": TRAIN_OUTPUT_DIR / "leakage_check_report.md",
         "Weighting report": REPORT_PATHS["Report weighting"],
         "SMOTE report": REPORT_PATHS["Report SMOTE"],
-        "CV report": REPORT_PATHS["Report cross validation"],
         "Error analysis report": REPORT_PATHS["Report error analysis"],
         "XAI report": REPORT_PATHS["Report XAI"],
         "SHAP summary plot": VISUAL_PATHS["SHAP Summary Plot"],
@@ -412,8 +441,8 @@ def build_general_conclusion_text() -> str:
     lines.append(f"- Model final memakai `{strategy['label']}`.")
     lines.append(f"- Deskripsi singkat: {strategy['description']}")
     lines.append(f"- Alasan memilih set ini: {rationale_text}")
-    lines.append("- Diagnosis ICD tidak dipakai pada model utama agar model tidak menunggu informasi diagnosis yang belum tentu tersedia pada pasien baru.")
-    lines.append("- Medication tetap diposisikan sebagai pembanding leakage, bukan fondasi model utama.")
+    lines.append("- State, physician specialty, diagnosis ICD, medication, PracticeGuid, dan PatientGuid tidak dipakai sebagai predictor model utama.")
+    lines.append("- Keputusan ini dibuat agar model tidak bergantung pada lokasi, jalur pelayanan, diagnosis yang sudah jadi, obat, atau identifier pasien.")
     lines.append("")
     lines.append("## Model yang Paling Bagus")
     lines.append("")
@@ -427,14 +456,14 @@ def build_general_conclusion_text() -> str:
     lines.append("## Penjelasan XAI")
     lines.append("")
     lines.append(f"- {xai_text}")
-    lines.append("- Secara umum, model membaca usia, BMI, tekanan darah, dan konteks layanan sebagai sinyal utama untuk memprediksi diabetes.")
-    lines.append("- Ini membuat interpretasi model lebih klinis dan lebih mudah dipertahankan dibanding model yang terlalu bergantung pada ICD atau medication.")
+    lines.append("- Secara umum, model final diarahkan untuk membaca usia, BMI, dan tekanan darah sebagai sinyal utama klasifikasi status T2DM.")
+    lines.append("- SHAP digunakan untuk menjelaskan kontribusi model, bukan untuk membuat klaim sebab-akibat.")
     lines.append("")
     lines.append("## Ringkasan Keputusan")
     lines.append("")
     lines.append(f"- Model utama untuk penulisan: `{best_primary['model']}`")
     lines.append(f"- Feature set utama untuk penulisan: `{strategy['label']}`")
-    lines.append("- Threshold final: `0.50`")
+    lines.append(f"- {threshold_text}")
     lines.append("- Strategi imbalance: `weighted`")
     lines.append("- SMOTE: tidak dipakai sebagai default")
     lines.append("- XAI: menggunakan SHAP pada model final")
@@ -499,11 +528,10 @@ def get_xai_summary_text(shap_path: Path, top_n: int = 5) -> str:
 
 def get_feature_set_rationale(feature_set_name: str) -> str:
     rationales = {
-        "demografi_transcript": "set ini paling bersih karena hanya memakai demografi dan sinyal klinis awal dari transcript.",
-        "demografi_transcript_physician": "set ini dipilih karena tetap bersih dari ICD dan medication, tetapi masih memberi konteks layanan melalui specialty dokter.",
-        "diagnosis": "set ini hanya dipakai sebagai sensitivitas karena ICD berisiko terlalu dekat dengan label.",
-        "diagnosis_physician": "set ini dipakai untuk sensitivitas, bukan model utama, agar kita bisa mengukur seberapa besar kenaikan performa dari blok diagnosis.",
-        "full": "set ini hanya comparator karena memasukkan medication yang rawan leakage.",
+        "clinical_core": "set ini paling sederhana dan hanya memakai fitur klinis yang mudah dijelaskan.",
+        "clinical_core_extreme": "set ini menambah nilai maksimum BMI dan tekanan darah untuk menangkap kondisi ekstrem tanpa menambah fitur proxy pelayanan.",
+        "clinical_core_extreme_weight": "set ini menguji apakah berat badan mentah masih menambah informasi setelah BMI digunakan.",
+        "full_transcript_comparator": "set ini dipakai sebagai pembanding kompleks karena memakai transcript lebih lengkap, tetapi tetap tanpa State, physician, ICD, medication, atau ID.",
     }
     return rationales.get(feature_set_name, "set ini dipilih berdasarkan performa dan kesesuaian metodologis.")
 

@@ -1,19 +1,162 @@
 # Ringkasan Eksperimen dan Hasil Penelitian
 
-Dokumen ini merangkum eksperimen yang dilakukan dari awal sampai akhir, lengkap dengan perubahan keputusan metodologis yang diambil selama proses penelitian.
+Dokumen ini merangkum rancangan eksperimen setelah refactor metodologi. Hasil lama tetap dipertahankan sebagai **preliminary / exploratory experiments**, sedangkan hasil final perlu dibaca dari artefak yang dihasilkan setelah pipeline baru dijalankan ulang.
 
-Tujuannya:
-- menjadi catatan penelitian yang runtut
-- membantu penulisan bab hasil dan pembahasan
-- menjelaskan kenapa model final yang dipilih adalah model yang sekarang
+## 1. Research Task
 
----
+Penelitian ini adalah **binary classification** untuk mengidentifikasi status Diabetes Mellitus Tipe 2 (T2DM) berdasarkan data EHR patient-level.
 
-## 1. Tujuan Penelitian
+Target:
 
-Penelitian ini bertujuan membandingkan beberapa model machine learning untuk prediksi `Diabetes Mellitus Tipe 2 (T2DM)` berbasis data EHR, lalu menginterpretasikan model terbaik menggunakan `SHAP`.
+```text
+DMIndicator
+0 = Non-DM
+1 = DM
+```
 
-Model yang dibandingkan:
+Konteks penggunaannya adalah screening/identifikasi status, sehingga recall atau sensitivity penting. Namun model tidak dipilih hanya dari recall karena model yang memprediksi semua pasien sebagai DM bisa menghasilkan recall tinggi tetapi tidak berguna.
+
+Primary metric untuk model selection adalah `PR-AUC / Average Precision`.
+
+## 2. Target Definition
+
+Target `DMIndicator` dibaca sebagai status DM/non-DM pasien pada dataset.
+
+Penelitian ini tidak diklaim sebagai prediksi kejadian T2DM di masa depan karena dataset tidak menyediakan tanggal diagnosis T2DM pertama yang cukup jelas untuk membuat observation window dan prediction window.
+
+## 3. Excluded Features and Rationale
+
+Model utama sengaja tidak memakai:
+- `State`
+- `PracticeGuid`
+- `PatientGuid`
+- `PhySp_*`
+- diagnosis / ICD
+- medication
+
+Alasannya:
+- `State` dapat menjadi proxy lokasi, practice, dan pola pencatatan EHR.
+- `PracticeGuid` dan `PatientGuid` adalah metadata, bukan karakteristik klinis.
+- `PhySp_*` dapat menjadi proxy jalur layanan kesehatan setelah pasien diketahui sakit.
+- diagnosis / ICD terlalu dekat dengan outcome.
+- medication dapat langsung mengindikasikan pasien DM atau proses monitoring DM.
+
+Fitur tersebut tidak selalu salah secara statistik, tetapi tidak dipakai pada primary model agar hasil lebih defensible secara metodologi.
+
+Leakage check refactor terbaru dengan XGBoost menunjukkan:
+- clean transcript comparator PR-AUC `0.4416`
+- dengan diagnosis PR-AUC `0.4820`
+- dengan medication PR-AUC `0.4753`
+- full comparator PR-AUC `0.5024`
+- delta full vs clean `+0.0608`
+
+Kenaikan ini mendukung keputusan bahwa diagnosis dan medication sebaiknya tidak menjadi predictor primary model.
+
+## 4. Candidate Feature Sets
+
+Feature set dibuat sebagai allow-list eksplisit.
+
+### Set A - Clinical Core
+
+```text
+Age
+Gender
+BMI_Mean
+SystolicBP_Mean
+DiastolicBP_Mean
+```
+
+Tujuan: baseline klinis sederhana.
+
+### Set B - Clinical Core + Extreme
+
+```text
+Age
+Gender
+BMI_Mean
+BMI_Max
+SystolicBP_Mean
+SystolicBP_Max
+DiastolicBP_Mean
+DiastolicBP_Max
+```
+
+Tujuan: kandidat utama yang tetap sederhana tetapi menangkap kondisi tipikal dan nilai tertinggi yang pernah tercatat.
+
+### Set C - Core + Weight
+
+Set B ditambah:
+
+```text
+Weight_Mean
+Weight_Max
+```
+
+Tujuan: menguji apakah berat badan masih menambah informasi setelah BMI digunakan.
+
+### Set D - Full Transcript Comparator
+
+Memakai fitur transcript yang lebih lengkap, tetapi tetap tanpa State, physician specialty, diagnosis, medication, `PatientGuid`, dan `PracticeGuid`.
+
+Tujuan: pembanding kompleks untuk melihat apakah fitur transcript tambahan memberi peningkatan yang cukup berarti.
+
+## 5. Fixed Development/Test Split
+
+Dataset dibagi menjadi:
+- 70% development data
+- 30% locked final test data
+
+Split dibuat dengan:
+
+```python
+train_test_split(..., test_size=0.30, stratify=y, random_state=42)
+```
+
+Development data dipakai untuk semua keputusan eksperimen. Locked test hanya dipakai setelah pipeline final dibekukan.
+
+Artefak split:
+- `outputs/app/train/locked_split_manifest.json`
+- `outputs/app/train/development_patient_ids.csv`
+- `outputs/app/train/test_patient_ids.csv`
+
+## 6. Feature Set Comparison
+
+Command:
+
+```powershell
+python main.py feature-set-screen
+```
+
+Tahap ini membandingkan Set A, B, C, dan D memakai model anchor yang sama. Tujuannya supaya efek feature set tidak bercampur dengan efek algoritma.
+
+Aturan seleksi:
+- prioritas utama `mean PR-AUC`
+- lihat stabilitas antar-fold
+- lihat recall karena konteks screening
+- jika performa set kompleks hanya naik sangat kecil, pilih set yang lebih sederhana
+
+Output:
+- `outputs/app/train/feature_set_screening_summary.csv`
+- `outputs/app/train/feature_set_screening_report.md`
+- `outputs/app/train/selected_feature_set.json`
+
+Hasil run refactor terbaru:
+- `full_transcript_comparator`: mean PR-AUC `0.4416 +/- 0.0048`, recall `0.6998`
+- `clinical_core_extreme_weight`: mean PR-AUC `0.4400 +/- 0.0213`, recall `0.7186`
+- `clinical_core_extreme`: mean PR-AUC `0.4393 +/- 0.0312`, recall `0.7194`
+- `clinical_core`: mean PR-AUC `0.4221 +/- 0.0218`, recall `0.7352`
+
+Feature set yang dipilih adalah `clinical_core_extreme` karena selisih PR-AUC terhadap set paling tinggi hanya `0.0023`, sedangkan Set B jauh lebih sederhana dan lebih mudah dijelaskan secara klinis.
+
+## 7. Model Comparison
+
+Command:
+
+```powershell
+python main.py cv-main
+```
+
+Setelah feature set dipilih, enam algoritma dibandingkan pada feature set yang sama:
 - Logistic Regression
 - SVM
 - KNN
@@ -21,431 +164,225 @@ Model yang dibandingkan:
 - XGBoost
 - LightGBM
 
----
-
-## 2. Data yang Digunakan
-
-Sumber data mentah:
-- `d1.csv`
-- `d2.csv`
-- `d3.csv`
-- `d4.csv`
-- `d5.csv`
-- `patient.csv`
-- `diagnosis.csv`
-- `medication.csv`
-- `physician_specialty.csv`
-- `transcript.csv`
-
-Keputusan akhir yang dipakai pada pipeline final:
-- label utama dan backbone pasien berasal dari `d5.csv`
-- `Age` tetap diambil dari `patient.csv`
-- transcript dibangun ulang dari `d2.csv`
-- diagnosis, physician, dan medication dipertahankan sebagai blok agregat opsional
-
----
-
-## 3. Tahap Prepare Data yang Dilakukan
-
-Eksperimen dan keputusan di tahap data preparation:
-
-### 3.1 Rebuild transcript
-Transcript lama ditelaah ulang, lalu dibangun ulang dari `d2.csv`.
-
-Fitur yang dibangun:
-- `Min`
-- `Max`
-- `Mean`
-- `NObs`
-- `Change`
-
-Untuk variabel:
-- Height
-- Weight
-- BMI
-- SystolicBP
-- DiastolicBP
-- RespiratoryRate
-- Temperature
-
-### 3.2 Cleaning nilai tidak masuk akal
-Nilai `0` atau nilai di luar batas klinis diubah menjadi `NaN` untuk fitur transcript yang memang tidak logis jika bernilai nol.
-
-Contoh:
-- BMI
-- tekanan darah
-- respiratory rate
-- temperature
-
-### 3.3 Penghapusan fitur std
-Seluruh fitur `*_Std` transcript akhirnya dibuang karena dianggap kurang stabil, lebih sulit dijelaskan, dan tidak terlalu mendukung tujuan model final.
-
-### 3.4 Missing value strategy
-Strategi akhir:
-- kolom dengan missing terlalu tinggi dievaluasi
-- missing indicator ditambahkan untuk fitur yang diimputasi
-- beberapa kolom transcript tetap diimputasi median melalui pipeline model
-
-### 3.5 Perubahan cohort final
-Pada tahap awal, cohort final sempat bergantung pada irisan beberapa tabel sekaligus.
-
-Keputusan final:
-- cohort akhir dibentuk dari **backbone pasien + transcript rebuilt** sebagai syarat utama
-- diagnosis, physician, dan medication digabung sebagai **optional left join**
-
-Tujuan keputusan ini:
-- menghindari pasien hilang hanya karena tidak punya medication atau blok agregat tertentu
-- membuat dataset final lebih realistis dan lebih siap untuk model utama
-
-### 3.6 Hasil akhir prepare data
-- final dataset: `9916 x 2510`
-- distribusi label:
-  - non-DM: `8017`
-  - DM: `1899`
-
-Output utama:
-- `outputs/app/prepare_data/final_dataset.csv`
-- `outputs/app/prepare_data/prepare_report.md`
-
----
-
-## 4. Tahap EDA yang Dilakukan
-
-EDA dijalankan untuk:
-- memeriksa distribusi label
-- memeriksa kualitas data
-- melihat pola umum fitur transcript, diagnosis, dan physician
-
-Temuan utama:
-- data bersifat tidak seimbang
-- BMI, berat badan, tekanan darah, dan usia memberi sinyal klinis yang relevan
-- diagnosis dan medication tampak memberi sinyal yang sangat dekat ke label
-
-Output utama:
-- `outputs/app/eda/report.md`
-- `outputs/app/eda/eda_summary.json`
-
----
-
-## 5. Struktur Feature Set yang Pernah Dicoba
-
-Selama penelitian, beberapa rancangan feature set digunakan.
-
-### Rancangan awal
-- Demografi + Transcript
-- Demografi + Transcript + Diagnosis
-- Demografi + Transcript + Diagnosis + Physician
-- Full + Medication
-
-### Keputusan akhir
-Feature set final dibagi menjadi:
-
-#### Set A - Demografi + Transcript
-Dipakai sebagai baseline paling bersih.
-
-#### Set B - Demografi + Transcript + Physician
-Dipakai sebagai model utama final.
-
-#### Set C - Demografi + Transcript + Diagnosis
-Dipakai sebagai **sensitivity set**, bukan model utama.
-
-#### Set D - Demografi + Transcript + Diagnosis + Physician
-Dipakai sebagai **sensitivity set**, bukan model utama.
-
-#### Set E - Full + Medication
-Dipakai sebagai **comparator leakage**.
-
----
-
-## 6. Kenapa ICD Akhirnya Tidak Dipakai pada Model Utama
-
-Ini adalah perubahan metodologis paling penting.
-
-Pertimbangannya:
-- ICD bisa membuat model terlalu menunggu diagnosis yang sudah jadi
-- untuk pasien baru, ICD belum tentu tersedia
-- dosen bisa mempertanyakan apakah model ini benar-benar prediksi dini atau hanya membaca diagnosis yang sudah terdokumentasi
-
-Kesimpulan akhir:
-- diagnosis **tidak dibuang dari eksperimen**
-- tetapi diagnosis **diturunkan menjadi sensitivity feature set**
-- model utama final tidak lagi bergantung pada ICD
-
----
-
-## 7. Baseline Training yang Dilakukan
-
-Semua model dibandingkan pada beberapa feature set.
-
-### Hasil baseline final
-Best primary holdout:
-- model: `XGBoost`
-- feature set: `Set B - Demografi + Transcript + Physician`
-- PR-AUC: `0.4381`
-- ROC-AUC: `0.7833`
-- Recall: `0.7298`
-- Precision: `0.3688`
-- F1-score: `0.4900`
-
-Best overall comparator:
-- model: `LightGBM`
-- feature set: `Set E - Full + Medication`
-- PR-AUC: `0.4925`
-- ROC-AUC: `0.8165`
-- Recall: `0.6912`
-- Precision: `0.4196`
-- F1-score: `0.5222`
-
-Makna hasil ini:
-- model dengan medication memang lebih tinggi
-- tetapi tidak dipakai sebagai model utama karena rawan leakage
-
----
-
-## 8. Leakage Audit dan Leakage Check
-
-Eksperimen leakage dilakukan dalam dua bentuk:
-
-### 8.1 Leakage audit berbasis fitur
-Tujuannya:
-- mencari fitur diagnosis, physician, dan medication yang sangat dekat dengan label
-
-Temuan:
-- diagnosis meningkatkan sinyal model
-- medication memberi sinyal yang lebih dekat lagi ke label
-- beberapa token medication sangat berisiko leakage
-
-### 8.2 Leakage check berbasis model
-Tujuannya:
-- mengukur kenaikan performa saat clean core diberi diagnosis atau medication
-
-Ringkasan delta `full vs clean_core`:
-- LightGBM: `+0.0550`
-- Gradient Boosting: `+0.0448`
-- XGBoost: `+0.0387`
-- Logistic Regression: `-0.0249`
-
-Interpretasi:
-- medication dan diagnosis memang menambah performa
-- tetapi kenaikan itu justru memperkuat alasan untuk memisahkan model utama dari feature yang terlalu dekat ke label
-
----
-
-## 9. Penanganan Class Imbalance
-
-Beberapa pendekatan diuji:
-
-### 9.1 Weighted vs unweighted
-Fokus pada model utama `Set B + XGBoost`:
-- weighted PR-AUC: `0.4381`
-- unweighted PR-AUC: `0.4357`
-- weighted recall: `0.7298`
-- unweighted recall: `0.1561`
-- weighted F1: `0.4900`
-- unweighted F1: `0.2465`
-
-Keputusan:
-- model weighted jauh lebih cocok
-- unweighted terlalu rendah recall untuk konteks screening
-
-### 9.2 SMOTE vs no SMOTE
-Fokus pada model utama `Set B + XGBoost`:
-- no SMOTE PR-AUC: `0.4381`
-- SMOTE PR-AUC: `0.3950`
-- no SMOTE recall: `0.7298`
-- SMOTE recall: `0.8702`
-- no SMOTE F1: `0.4900`
-- SMOTE F1: `0.4509`
-
-Keputusan:
-- SMOTE menaikkan recall
-- tetapi menurunkan PR-AUC dan F1
-- SMOTE tidak dipakai sebagai default
-
----
-
-## 10. Cross-Validation
-
-Cross-validation utama dijalankan pada feature set primary final:
-- Set A
-- Set B
-
-Hasil terbaik CV:
-- model: `LightGBM`
-- feature set: `Set B - Demografi + Transcript + Physician`
-- mean PR-AUC: `0.4684 +/- 0.0167`
-- mean recall: `0.6741 +/- 0.0209`
-- mean precision: `0.3886 +/- 0.0109`
-- mean F1: `0.4930 +/- 0.0140`
-
-Model `XGBoost` tetap sangat kuat:
-- mean PR-AUC: `0.4652 +/- 0.0159`
-- mean recall: `0.7388 +/- 0.0218`
-- mean F1: `0.4867 +/- 0.0126`
-
-Interpretasi:
-- XGBoost tetap unggul untuk recall
-- LightGBM sedikit lebih unggul untuk kestabilan rata-rata PR-AUC dan F1
-
----
-
-## 11. Threshold Tuning
-
-Threshold tuning dilakukan untuk model kandidat utama.
-
-Hasil akhir:
-- `Set B + XGBoost`: threshold terbaik tetap `0.50`
-- `Set A + LightGBM`: threshold terbaik `0.45`
-
-Keputusan final untuk model utama:
-- threshold `0.50`
-
-Alasannya:
-- lebih sesuai untuk konteks screening medis
-- tidak menaikkan false negative secara berlebihan
-
----
-
-## 12. Error Analysis
-
-Error analysis dilakukan pada model final `Set B + XGBoost`.
-
-### Threshold 0.50
-- TP: `416`
-- TN: `1693`
-- FP: `712`
-- FN: `154`
-
-### Threshold 0.60
-- TP: `306`
-- TN: `1964`
-- FP: `441`
-- FN: `264`
-
-Interpretasi:
-- menaikkan threshold memang menurunkan false positive
-- tetapi false negative naik banyak
-- untuk konteks medis, threshold `0.50` lebih sesuai
-
-Pola error yang ditemukan:
-- false negative cenderung lebih muda, berat badan lebih rendah, BMI lebih rendah
-- false positive cenderung lebih tua, berat badan lebih tinggi, BMI lebih tinggi
-
----
-
-## 13. XAI dengan SHAP
-
-XAI final dijalankan pada:
-- model: `XGBoost`
-- feature set: `Set B - Demografi + Transcript + Physician`
-- threshold: `0.50`
-
-Visualisasi yang disiapkan:
-- `summary plot`
-- `summary bar plot`
-- `dependence plot`
-- `force plot` pasien individual
-
-Top fitur global SHAP:
-1. `Age`
-2. `BMI_Mean`
-3. `BMI_Max`
-4. `DiastolicBP_Mean`
-5. `PhySp_Internal_Medicine`
-
-Interpretasi umum:
-- model membaca usia sebagai sinyal paling dominan
-- BMI dan tekanan darah memberi kontribusi klinis yang kuat
-- konteks layanan melalui specialty dokter tetap berpengaruh, tetapi tidak mendominasi secara tidak masuk akal
-
-Keuntungan versi final ini:
-- SHAP menjadi lebih mudah dipertahankan
-- interpretasi model lebih klinis
-- model tidak terlalu bergantung pada ICD atau medication
-
----
-
-## 14. Model Final yang Dipilih
-
-Untuk penulisan utama, posisi akhir penelitian ini adalah:
-
-### Model utama
-- `XGBoost`
-- `Set B - Demografi + Transcript + Physician`
-- threshold `0.50`
-- weighted
-- tanpa SMOTE
-
-### Model pembanding kuat
-- `LightGBM`
-- `Set B - Demografi + Transcript + Physician`
-- dipakai sebagai pembanding CV/stabilitas
-
-### Model sensitivitas
-- `Set C`
-- `Set D`
-
-### Comparator leakage
-- `Set E - Full + Medication`
-
----
-
-## 15. Artefak Hasil yang Tersedia
-
-Beberapa file hasil penting:
-
-### Prepare Data
-- `outputs/app/prepare_data/prepare_report.md`
-
-### EDA
-- `outputs/app/eda/report.md`
-
-### Training
-- `outputs/app/train/report.md`
-
-### Leakage
-- `outputs/app/train/leakage_audit_report.md`
-- `outputs/app/train/leakage_check_report.md`
-
-### Imbalance
-- `outputs/app/train/weighting_comparison_report.md`
-- `outputs/app/train/smote_comparison_report.md`
-
-### CV
+Semua memakai development CV yang sama agar perbandingan algoritma fair.
+
+Output:
+- `outputs/app/train/main_cv_fold_results.csv`
+- `outputs/app/train/main_cv_summary.csv`
 - `outputs/app/train/main_cv_report.md`
 
-### Threshold
+Hasil run refactor terbaru pada `clinical_core_extreme`:
+- XGBoost: mean PR-AUC `0.4393`, recall `0.7194`, F2 `0.5886`
+- Gradient Boosting: mean PR-AUC `0.4269`, recall `0.7276`, F2 `0.5915`
+- LightGBM: mean PR-AUC `0.4216`, recall `0.6576`, F2 `0.5605`
+- Logistic Regression: mean PR-AUC `0.4175`, recall `0.7103`, F2 `0.5882`
+- SVM: mean PR-AUC `0.4153`, recall `0.7427`, F2 `0.6031`
+- KNN: mean PR-AUC `0.3756`, recall `0.1798`, F2 `0.2045`
+
+Berdasarkan primary metric `PR-AUC`, XGBoost menjadi model utama.
+
+## 8. Imbalance Handling
+
+Command:
+
+```powershell
+python main.py weight-compare
+python main.py smote-compare
+```
+
+Eksperimen imbalance dipisahkan:
+- baseline tanpa SMOTE dan tanpa class weight
+- class weight
+- SMOTE tanpa class weight
+
+SMOTE diterapkan hanya pada training fold di dalam cross-validation. Validation fold tidak di-resample.
+
+Output:
+- `outputs/app/train/weighting_comparison_summary.csv`
+- `outputs/app/train/weighting_comparison_report.md`
+- `outputs/app/train/smote_comparison_summary.csv`
+- `outputs/app/train/smote_comparison_report.md`
+
+Hasil run refactor terbaru:
+- Weighted XGBoost PR-AUC `0.4393`, recall `0.7194`, F2 `0.5886`
+- Unweighted XGBoost PR-AUC `0.4366`, recall `0.1475`, F2 `0.1727`
+- No SMOTE XGBoost PR-AUC `0.4366`, recall `0.1475`, F2 `0.1727`
+- SMOTE XGBoost PR-AUC `0.4231`, recall `0.5711`, F2 `0.5210`
+
+Keputusan: class weighting lebih sesuai sebagai strategi utama. SMOTE meningkatkan recall dibanding unweighted, tetapi menurunkan PR-AUC dan masih kalah dari weighted model untuk konteks screening.
+
+## 9. Optuna
+
+Command:
+
+```powershell
+python main.py optuna-tune
+```
+
+Optuna dijalankan hanya pada model kandidat terpilih dan development CV. Objective yang digunakan adalah `PR-AUC`.
+
+Output:
+- `outputs/app/train/optuna_trials.csv`
+- `outputs/app/train/optuna_best_params.json`
+- `outputs/app/train/optuna_baseline_vs_tuned.csv`
+- `outputs/app/train/optuna_report.md`
+
+Hasil run refactor terbaru:
+- Baseline XGBoost PR-AUC `0.4393`
+- Tuned XGBoost PR-AUC `0.4423`
+- Delta PR-AUC `+0.0030`
+- Tuned recall `0.7299`
+
+Optuna memberi peningkatan kecil. Ini tetap berguna karena menunjukkan hyperparameter tuning dilakukan secara terkontrol pada development CV.
+
+## 10. Threshold Selection
+
+Command:
+
+```powershell
+python main.py threshold-tune
+```
+
+Threshold dicari memakai out-of-fold prediction pada development data. Final test tidak digunakan untuk memilih threshold.
+
+Metric yang dilihat:
+- recall / sensitivity
+- specificity
+- precision
+- F1
+- F2
+
+Output:
+- `outputs/app/train/threshold_tuning_results.csv`
+- `outputs/app/train/threshold_tuning_best_thresholds.csv`
 - `outputs/app/train/threshold_tuning_report.md`
 
-### Error Analysis
-- `outputs/app/train/error_analysis_report.md`
+Hasil run refactor terbaru:
+- threshold terpilih `0.35`
+- recall development OOF `0.8781`
+- precision development OOF `0.2919`
+- specificity development OOF `0.4955`
+- F2 development OOF `0.6265`
 
-### XAI
+Threshold `0.35` dipilih karena konteks screening lebih memprioritaskan pengurangan false negative.
+
+## 11. Final Test Evaluation
+
+Command:
+
+```powershell
+python main.py train
+```
+
+Setelah feature set, model, imbalance strategy, hyperparameter, dan threshold sudah ditetapkan, model dilatih pada seluruh development data dan dievaluasi sekali pada locked test.
+
+Metric final yang dilaporkan:
+- PR-AUC
+- ROC-AUC
+- recall / sensitivity
+- specificity
+- precision
+- NPV
+- F1
+- F2
+- confusion matrix
+- Brier score
+
+Output:
+- `outputs/app/train/final_test_results.csv`
+- `outputs/app/train/final_test_predictions.csv`
+- `outputs/app/train/report.md`
+- `outputs/app/train/best_model.pkl`
+
+Hasil final locked test setelah refactor:
+- model: `XGBoost`
+- feature set: `clinical_core_extreme`
+- threshold: `0.35`
+- PR-AUC: `0.4222`
+- ROC-AUC: `0.7678`
+- recall: `0.8737`
+- specificity: `0.4915`
+- precision: `0.2894`
+- NPV: `0.9426`
+- F1: `0.4347`
+- F2: `0.6223`
+- Brier score: `0.1927`
+- confusion matrix: TN `1182`, FP `1223`, FN `72`, TP `498`
+
+## 12. Calibration
+
+Calibration curve dan Brier score dibuat pada tahap final evaluation.
+
+Output:
+- `outputs/app/train/calibration_*.png`
+- `outputs/app/train/calibration_*.csv`
+
+Calibration membantu membaca apakah probabilitas model cukup masuk akal, bukan hanya ranking pasiennya.
+
+## 13. SHAP
+
+Command:
+
+```powershell
+python main.py xai
+```
+
+SHAP dijalankan pada model final setelah semua keputusan metodologi selesai.
+
+Output:
 - `outputs/app/train/xai/xai_report.md`
+- `outputs/app/train/xai/xai_top_features.csv`
 - `outputs/app/train/xai/shap_summary_plot.png`
 - `outputs/app/train/xai/shap_summary_bar.png`
-- `outputs/app/train/xai/shap_dependence_Age.png`
-- `outputs/app/train/xai/shap_dependence_BMI_Mean.png`
-- `outputs/app/train/xai/shap_dependence_BMI_Max.png`
+- `outputs/app/train/xai/xai_force_*.html`
 
----
+Top fitur SHAP run refactor terbaru:
+- `Age`
+- `BMI_Max`
+- `DiastolicBP_Mean`
+- `BMI_Mean`
+- `SystolicBP_Max`
+- `Gender_F`
+- `SystolicBP_Mean`
+- `DiastolicBP_Max`
+- `Gender_M`
 
-## 16. Kesimpulan Proses Penelitian
+Catatan interpretasi:
+- SHAP menjelaskan kontribusi fitur terhadap output model.
+- SHAP tidak boleh ditulis sebagai bukti sebab-akibat medis.
 
-Secara keseluruhan, eksperimen penelitian bergerak dari:
-- membangun ulang transcript
-- membersihkan data dan missing values
-- membandingkan beberapa model dan beberapa feature set
-- mengevaluasi risiko leakage
-- menguji strategi imbalance
-- menguji kestabilan model melalui cross-validation
-- memilih threshold yang sesuai untuk konteks medis
-- melakukan error analysis
-- menginterpretasikan model final menggunakan SHAP
+## 14. Limitations
 
-Keputusan metodologis terpenting adalah:
-- ICD tidak dipakai sebagai bagian model utama
-- medication tidak dipakai sebagai bagian model utama
-- model utama final dibuat lebih bersih agar lebih realistis untuk pasien baru dan lebih kuat dipertahankan saat sidang
+Keterbatasan yang perlu ditulis:
+- Tidak ada tanggal diagnosis T2DM pertama, sehingga penelitian adalah status classification, bukan future-event prediction.
+- Belum ada external validation pada rumah sakit atau practice yang sepenuhnya berbeda.
+- Random patient split belum membuktikan generalisasi antar-fasilitas.
+- Fitur State, physician specialty, diagnosis, dan medication sengaja dikeluarkan dari primary model untuk mengurangi risiko shortcut learning.
+- SHAP menjelaskan perilaku model, bukan kausalitas.
 
-Dokumen ini bisa dipakai sebagai dasar untuk menulis bab hasil, pembahasan, dan bagian metodologi final.
+## 15. Preliminary Results
+
+Hasil sebelum refactor metodologi tetap berguna sebagai catatan eksplorasi. Namun hasil tersebut tidak diposisikan sebagai final karena sebagian eksperimen lama masih memakai feature set yang lebih luas, termasuk physician specialty, diagnosis, atau medication.
+
+Setelah refactor ini, hasil final yang layak dipakai untuk penulisan utama adalah hasil dari urutan:
+
+```powershell
+python main.py prepare-data
+python main.py eda
+python main.py methodology-check
+python main.py feature-set-screen
+python main.py cv-main
+python main.py weight-compare
+python main.py smote-compare
+python main.py optuna-tune
+python main.py threshold-tune
+python main.py train
+python main.py error-analysis
+python main.py xai
+```
+
+Atau langsung:
+
+```powershell
+python main.py all
+```

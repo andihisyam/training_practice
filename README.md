@@ -1,8 +1,10 @@
-# PracticeFusion Workspace
+# PracticeFusion T2DM Classification
 
-Workspace ini sudah disiapkan untuk penelitian prediksi `Diabetes Mellitus Tipe 2 (T2DM)` berbasis data EHR.
+Workspace ini berisi pipeline penelitian untuk **klasifikasi status Diabetes Mellitus Tipe 2 (T2DM)** berbasis data Electronic Health Record (EHR).
 
-## Dokumen Tambahan
+Penelitian ini tidak diklaim sebagai prediksi kejadian diabetes di masa depan, karena dataset tidak menyediakan tanggal diagnosis T2DM pertama yang cukup jelas untuk membentuk observation window dan prediction window.
+
+## Dokumen Penting
 
 - [Panduan penggunaan `main.py`](docs/README_PENGGUNAAN_MAIN.md)
 - [Ringkasan eksperimen dan hasil penelitian](docs/README_EKSPERIMEN_DAN_HASIL.md)
@@ -10,98 +12,105 @@ Workspace ini sudah disiapkan untuk penelitian prediksi `Diabetes Mellitus Tipe 
 ## Struktur Folder
 
 - `data/raw/`: dataset mentah CSV
-- `docs/`: proposal dan catatan penelitian
-- `notebooks/`: notebook eksplorasi / eksperimen
-- `outputs/`: hasil EDA dan artefak analisis
-- `scripts/`: script utilitas lama
-- `practicefusion/`: modul Python utama untuk pipeline riset
-- `main.py`: entrypoint CLI untuk menjalankan alur riset
+- `docs/`: proposal, rencana, dan dokumentasi penelitian
+- `notebooks/`: notebook eksplorasi
+- `outputs/`: hasil EDA, training, dan XAI
+- `scripts/`: script utilitas tambahan
+- `practicefusion/`: modul Python utama
+- `main.py`: entrypoint CLI dan menu interaktif
 
-## Ringkasan Data
+## Cara Menjalankan
 
-- `patient.csv`: 9.948 baris x 5 kolom, berisi demografi dan label `DMIndicator`
-- `diagnosis.csv`: 9.948 baris x 26 kolom, fitur diagnosis ICD-9 dan agregat kunjungan
-- `physician_specialty.csv`: 9.948 baris x 62 kolom, frekuensi specialty dokter
-- `transcript.csv`: 9.948 baris x 36 kolom, agregat tanda vital dan antropometri
-- `medication.csv`: 9.836 baris x 2.368 kolom, fitur obat yang sangat high-dimensional
+Mode menu interaktif:
 
-## Temuan Awal
+```powershell
+python main.py
+```
 
-- Distribusi label tidak seimbang: 1.904 pasien diabetes vs 8.044 non-diabetes.
-- `medication.csv` tidak mencakup semua pasien, jadi join yang aman adalah `left join` dari `patient.csv`.
-- Tidak ada duplikasi `PatientGuid` di semua tabel utama.
-- Ada sinyal data khusus yang perlu hati-hati:
-  - `BMI_Min = 0` muncul sangat sering dan tampak seperti nilai missing yang dikodekan sebagai nol.
-  - `Gender` dan `State` di `patient.csv` saat ini sudah berbentuk angka, jadi perlu dicek lagi apakah memang sudah di-encode dari sumber aslinya.
-  - Fitur diagnosis dan medication berpotensi leakage jika label diabetes dibentuk dari informasi yang sama.
-
-## Cara Pakai
-
-### 1. Siapkan final dataset
+Mode command:
 
 ```powershell
 python main.py prepare-data
-```
-
-Output default:
-- `outputs/app/prepare_data/final_dataset.csv`
-- `outputs/app/prepare_data/transcript_rebuilt.csv`
-
-### 2. Jalankan EDA
-
-```powershell
 python main.py eda
-```
-
-Output default:
-- `outputs/app/eda/report.md`
-- `outputs/app/eda/eda_summary.json`
-
-### 3. Jalankan baseline training
-
-```powershell
+python main.py methodology-check
+python main.py feature-set-screen
+python main.py cv-main
+python main.py weight-compare
+python main.py smote-compare
+python main.py optuna-tune
+python main.py threshold-tune
 python main.py train
+python main.py error-analysis
+python main.py xai
 ```
 
-Output default:
-- `outputs/app/train/baseline_results.csv`
-- `outputs/app/train/report.md`
-- `outputs/app/train/best_model.pkl`
-- `outputs/app/train/best_comparator_model.pkl` (jika feature set `full` ikut dijalankan)
-
-Struktur feature set yang dipakai:
-- `demografi_transcript`: model dasar paling bersih, berisi demografi + transcript
-- `diagnosis`: model utama dengan tambahan diagnosis umum
-- `diagnosis_physician`: model utama dengan tambahan diagnosis + specialty dokter
-- `full`: model pembanding yang masih memakai medication untuk analisis leakage
-
-### 4. Jalankan semua tahap sekaligus
+Atau jalankan alur lengkap:
 
 ```powershell
 python main.py all
 ```
 
-### 5. Contoh opsi tambahan
+## Feature Set Utama
 
-Jalankan hanya feature set tertentu:
+Feature set kandidat setelah refactor:
 
-```powershell
-python main.py train --feature-sets demografi_transcript diagnosis
-```
+- `clinical_core`: Age, Gender, BMI mean, systolic BP mean, diastolic BP mean
+- `clinical_core_extreme`: `clinical_core` + BMI max, systolic BP max, diastolic BP max
+- `clinical_core_extreme_weight`: `clinical_core_extreme` + Weight mean/max
+- `full_transcript_comparator`: transcript-derived features yang lebih lengkap
 
-Jalankan hanya model tertentu:
+Model utama sengaja tidak memakai:
 
-```powershell
-python main.py train --models "Logistic Regression" XGBoost LightGBM
-```
+- `State`
+- `PhySp_*`
+- diagnosis / ICD
+- medication
+- `PatientGuid`
+- `PracticeGuid`
 
-### 6. Audit leakage fitur
+Kolom tersebut disimpan sebagai metadata atau bahan audit/sensitivity analysis, tetapi bukan predictor primary model.
 
-```powershell
-python main.py leakage-audit
-```
+## Prinsip Evaluasi
 
-Output default:
-- `outputs/app/train/leakage_audit_report.md`
-- `outputs/app/train/leakage_audit_keyword_hits.csv`
-- `outputs/app/train/leakage_audit_high_association_medication.csv`
+Semua keputusan dilakukan pada 70% development data:
+
+- feature set selection
+- model comparison
+- imbalance strategy comparison
+- Optuna tuning
+- threshold tuning
+
+Setelah keputusan selesai, model final dievaluasi satu kali pada 30% locked test.
+
+Primary metric untuk model selection adalah `PR-AUC`. Recall tetap penting karena konteks penelitian adalah screening/identifikasi status T2DM.
+
+## Hasil Refactor Terbaru
+
+Feature set yang dipilih:
+
+- `clinical_core_extreme`
+- label: `Set B - Clinical Core + Extreme`
+- alasan: performanya kompetitif terhadap feature set yang lebih kompleks, tetapi jauh lebih sederhana dan lebih mudah dijelaskan
+
+Model final:
+
+- XGBoost weighted
+- Optuna tuned
+- threshold final `0.35`
+
+Hasil locked test:
+
+- PR-AUC `0.4222`
+- ROC-AUC `0.7678`
+- Recall `0.8737`
+- Specificity `0.4915`
+- Precision `0.2894`
+- F2 `0.6223`
+
+Top fitur SHAP:
+
+- Age
+- BMI_Max
+- DiastolicBP_Mean
+- BMI_Mean
+- SystolicBP_Max
