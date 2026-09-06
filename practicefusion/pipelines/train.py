@@ -14,7 +14,7 @@ import xgboost as xgb
 from lightgbm import LGBMClassifier
 from sklearn.calibration import calibration_curve
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -44,12 +44,14 @@ from practicefusion.utils.io import ensure_dir, load_csv, save_json, save_markdo
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 SCALE_SENSITIVE_MODELS = {"Logistic Regression", "SVM", "KNN"}
+MAIN_MODEL_NAMES = ["Logistic Regression", "SVM", "KNN", "Gradient Boosting", "XGBoost", "LightGBM"]
+FEATURE_SCREENING_ANCHOR_MODELS = ["Logistic Regression", "Random Forest"]
+FEATURE_SCREENING_MODEL_CHOICES = MAIN_MODEL_NAMES + ["Random Forest"]
 DEFAULT_SMOTE_MODELS = ["Logistic Regression", "Gradient Boosting", "XGBoost", "LightGBM"]
 DEFAULT_WEIGHTING_MODELS = ["Logistic Regression", "SVM", "Gradient Boosting", "XGBoost", "LightGBM"]
 DEFAULT_PRIMARY_FEATURE_SET = "clinical_core_extreme"
 DEFAULT_PRIMARY_MODEL = "XGBoost"
 DEFAULT_CV_FEATURE_SETS = [DEFAULT_PRIMARY_FEATURE_SET]
-DEFAULT_FEATURE_SCREENING_MODEL = DEFAULT_PRIMARY_MODEL
 DEFAULT_DEV_N_SPLITS = 5
 DEFAULT_ERROR_ANALYSIS_FEATURE_SET = DEFAULT_PRIMARY_FEATURE_SET
 DEFAULT_ERROR_ANALYSIS_MODEL = "XGBoost"
@@ -729,6 +731,19 @@ def make_model_builders(
                     "random_state": random_state,
                 },
                 "Gradient Boosting",
+            )
+        ),
+        "Random Forest": lambda: RandomForestClassifier(
+            **merged(
+                {
+                    "n_estimators": 300,
+                    "max_depth": None,
+                    "min_samples_leaf": 2,
+                    "class_weight": "balanced" if use_class_balancing else None,
+                    "n_jobs": 1,
+                    "random_state": random_state,
+                },
+                "Random Forest",
             )
         ),
         "XGBoost": lambda: XGBClassifier(
@@ -1853,6 +1868,55 @@ def summarize_cv_results(results_df: pd.DataFrame) -> pd.DataFrame:
     return summary_df
 
 
+def summarize_feature_screening_across_anchors(summary_df: pd.DataFrame) -> pd.DataFrame:
+    if summary_df.empty:
+        return summary_df.copy()
+
+    metric_cols = [
+        "mean_accuracy",
+        "std_accuracy",
+        "mean_precision",
+        "std_precision",
+        "mean_recall",
+        "std_recall",
+        "mean_specificity",
+        "std_specificity",
+        "mean_npv",
+        "std_npv",
+        "mean_f1",
+        "std_f1",
+        "mean_f2",
+        "std_f2",
+        "mean_roc_auc",
+        "std_roc_auc",
+        "mean_pr_auc",
+        "std_pr_auc",
+        "mean_brier_score",
+        "std_brier_score",
+    ]
+    agg_spec: dict[str, Any] = {
+        "anchor_models": ("model", lambda values: ", ".join(sorted(str(value) for value in values))),
+        "anchors": ("model", "nunique"),
+        "mean_n_features": ("mean_n_features", "mean"),
+        "min_n_features": ("min_n_features", "min"),
+        "max_n_features": ("max_n_features", "max"),
+        "conceptual_n_features": ("conceptual_n_features", "first"),
+    }
+    for col in metric_cols:
+        if col in summary_df.columns:
+            agg_spec[col] = (col, "mean")
+
+    anchor_summary_df = (
+        summary_df.groupby(["feature_set", "feature_set_label", "feature_set_role"], as_index=False)
+        .agg(**agg_spec)
+        .sort_values(["mean_pr_auc", "mean_recall", "mean_f2"], ascending=False)
+        .reset_index(drop=True)
+    )
+    if "mean_n_features" in anchor_summary_df.columns:
+        anchor_summary_df["mean_n_features"] = anchor_summary_df["mean_n_features"].round(2)
+    return anchor_summary_df
+
+
 def get_feature_set_selection_path(out_dir: Path) -> Path:
     return out_dir / "selected_feature_set.json"
 
@@ -1901,17 +1965,22 @@ def save_selected_feature_set(
     out_dir: Path,
     selected_row: dict[str, Any],
     rationale: str,
-    model_name: str,
+    model_names: list[str] | str,
     n_splits: int,
     random_state: int,
 ) -> Path:
     path = get_feature_set_selection_path(out_dir)
+    if isinstance(model_names, str):
+        selection_models = [model_names]
+    else:
+        selection_models = list(model_names)
     payload = {
         "created_at": now_iso(),
         "selected_feature_set": selected_row["feature_set"],
         "selected_feature_set_label": selected_row.get("feature_set_label"),
-        "selection_model": model_name,
-        "selection_metric": "mean_pr_auc",
+        "selection_model": selection_models[0] if len(selection_models) == 1 else None,
+        "selection_models": selection_models,
+        "selection_metric": "mean_pr_auc_across_anchors" if len(selection_models) > 1 else "mean_pr_auc",
         "selection_rule": "PR-AUC + stability + parsimony",
         "rationale": rationale,
         "n_splits": int(n_splits),
@@ -2085,7 +2154,8 @@ def run_methodology_checks(
 def run_feature_set_screening(
     dataset_path: Path = APP_FINAL_DATASET_PATH,
     out_dir: Path = TRAIN_OUTPUT_DIR,
-    model_name: str = DEFAULT_FEATURE_SCREENING_MODEL,
+    model_name: str | None = None,
+    anchor_models: list[str] | None = None,
     selected_feature_sets: list[str] | None = None,
     n_splits: int = DEFAULT_DEV_N_SPLITS,
     test_size: float = 0.3,
@@ -2103,13 +2173,25 @@ def run_feature_set_screening(
     if not feature_set_names:
         raise ValueError("Tidak ada feature set yang tersedia untuk feature-set screening.")
 
+    if anchor_models is None:
+        anchor_model_names = [model_name] if model_name else list(FEATURE_SCREENING_ANCHOR_MODELS)
+    else:
+        anchor_model_names = list(anchor_models)
+
+    available_models = make_model_builders(neg_pos_ratio=1.0, random_state=random_state, use_class_balancing=use_class_balancing)
+    invalid_models = [name for name in anchor_model_names if name not in available_models]
+    if invalid_models:
+        raise ValueError(f"Model anchor tidak tersedia untuk feature-set screening: {invalid_models}")
+    if not anchor_model_names:
+        raise ValueError("Minimal satu model anchor diperlukan untuk feature-set screening.")
+
     development_idx, test_idx = make_development_test_split(df, test_size=test_size, random_state=random_state)
     split_manifest_path = save_split_manifest(df, development_idx, test_idx, out_dir, test_size=test_size, random_state=random_state)
     selected_sets = {name: feature_sets[name] for name in feature_set_names}
     fold_results_df = collect_cv_results(
         df=df,
         feature_sets=selected_sets,
-        model_names=[model_name],
+        model_names=anchor_model_names,
         development_idx=development_idx,
         n_splits=n_splits,
         random_state=random_state,
@@ -2126,12 +2208,17 @@ def run_feature_set_screening(
     summary_path = out_dir / "feature_set_screening_summary.csv"
     summary_df.to_csv(summary_path, index=False)
 
-    selected_row, selection_rationale = select_feature_set_by_rule(summary_df)
+    anchor_summary_df = summarize_feature_screening_across_anchors(summary_df)
+    anchor_summary_path = out_dir / "feature_set_screening_anchor_summary.csv"
+    anchor_summary_df.to_csv(anchor_summary_path, index=False)
+
+    selection_basis_df = anchor_summary_df if len(anchor_model_names) > 1 else summary_df
+    selected_row, selection_rationale = select_feature_set_by_rule(selection_basis_df)
     selected_feature_set_path = save_selected_feature_set(
         out_dir=out_dir,
         selected_row=selected_row,
         rationale=selection_rationale,
-        model_name=model_name,
+        model_names=anchor_model_names,
         n_splits=n_splits,
         random_state=random_state,
     )
@@ -2142,19 +2229,32 @@ def run_feature_set_screening(
     lines.append(f"- Dataset: `{dataset_path}`")
     lines.append(f"- Development/Test split: `70/30` dengan random_state `{random_state}`")
     lines.append(f"- Development CV: `StratifiedKFold(n_splits={n_splits}, shuffle=True, random_state={random_state})`")
-    lines.append(f"- Model anchor: `{model_name}`")
+    lines.append(f"- Model anchor: `{', '.join(anchor_model_names)}`")
     lines.append(f"- Weighted model: `{use_class_balancing}`")
     lines.append("")
     lines.append("## Tujuan")
     lines.append("")
-    lines.append("- Membandingkan beberapa feature set dengan model yang sama agar pemilihan fitur tidak tercampur dengan efek algoritma.")
+    lines.append("- Membandingkan beberapa feature set pada development CV agar pemilihan fitur tidak diputuskan dari locked test.")
+    lines.append("- Default screening memakai dua anchor, yaitu model linear dan model nonlinear, supaya keputusan feature set tidak bergantung pada satu jenis algoritma saja.")
+    lines.append("- `Random Forest` di tahap ini hanya dipakai sebagai anchor sensitivitas pemilihan fitur, bukan sebagai model utama pada perbandingan 6 algoritma.")
     lines.append("- `Locked test` belum dipakai di tahap ini; semua keputusan masih dibuat di development set.")
     lines.append("")
-    lines.append("## Ringkasan Hasil")
+    lines.append("## Ringkasan Gabungan Anchor")
+    lines.append("")
+    for row in anchor_summary_df.to_dict(orient="records"):
+        lines.append(
+            f"- `{row['feature_set']}`: PR-AUC `{row['mean_pr_auc']:.4f} +/- {row['std_pr_auc']:.4f}`, "
+            f"Recall `{row['mean_recall']:.4f} +/- {row['std_recall']:.4f}`, "
+            f"F2 `{row['mean_f2']:.4f} +/- {row['std_f2']:.4f}`, "
+            f"Brier `{row['mean_brier_score']:.4f} +/- {row['std_brier_score']:.4f}`, "
+            f"anchor `{row['anchor_models']}`, fitur efektif `{int(row['min_n_features'])}-{int(row['max_n_features'])}`"
+        )
+    lines.append("")
+    lines.append("## Ringkasan per Anchor")
     lines.append("")
     for row in summary_df.to_dict(orient="records"):
         lines.append(
-            f"- `{row['feature_set']}`: PR-AUC `{row['mean_pr_auc']:.4f} +/- {row['std_pr_auc']:.4f}`, "
+            f"- `{row['feature_set']}` dengan `{row['model']}`: PR-AUC `{row['mean_pr_auc']:.4f} +/- {row['std_pr_auc']:.4f}`, "
             f"Recall `{row['mean_recall']:.4f} +/- {row['std_recall']:.4f}`, "
             f"F2 `{row['mean_f2']:.4f} +/- {row['std_f2']:.4f}`, "
             f"Brier `{row['mean_brier_score']:.4f} +/- {row['std_brier_score']:.4f}`, "
@@ -2173,7 +2273,8 @@ def run_feature_set_screening(
     lines.append("")
     lines.append(f"- Split manifest: `{split_manifest_path}`")
     lines.append(f"- Fold-level results CSV: `{fold_results_path}`")
-    lines.append(f"- Summary CSV: `{summary_path}`")
+    lines.append(f"- Summary per anchor CSV: `{summary_path}`")
+    lines.append(f"- Summary gabungan anchor CSV: `{anchor_summary_path}`")
     lines.append(f"- Selected feature set JSON: `{selected_feature_set_path}`")
     report_path = out_dir / "feature_set_screening_report.md"
     save_markdown(report_path, "\n".join(lines))
@@ -2184,10 +2285,12 @@ def run_feature_set_screening(
         "split_manifest_path": split_manifest_path,
         "results_path": fold_results_path,
         "summary_path": summary_path,
+        "anchor_summary_path": anchor_summary_path,
         "selected_feature_set_path": selected_feature_set_path,
         "report_path": report_path,
         "fold_results_df": fold_results_df,
         "summary_df": summary_df,
+        "anchor_summary_df": anchor_summary_df,
         "best_experiment": selected_row,
         "selection_rationale": selection_rationale,
     }
@@ -2219,7 +2322,8 @@ def run_main_cv(
     if not feature_sets:
         raise ValueError("Tidak ada feature set utama yang tersedia untuk CV.")
 
-    model_names = list(make_model_builders(neg_pos_ratio=1.0, random_state=random_state, use_class_balancing=use_class_balancing))
+    available_models = make_model_builders(neg_pos_ratio=1.0, random_state=random_state, use_class_balancing=use_class_balancing)
+    model_names = [name for name in MAIN_MODEL_NAMES if name in available_models]
     if selected_models:
         model_names = [name for name in model_names if name in selected_models]
     if not model_names:

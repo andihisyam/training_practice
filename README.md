@@ -59,6 +59,8 @@ Feature set kandidat setelah refactor:
 - `clinical_core_extreme_weight`: `clinical_core_extreme` + Weight mean/max
 - `full_transcript_comparator`: transcript-derived features yang lebih lengkap
 
+`feature-set-screen` secara default memakai dua anchor, yaitu `Logistic Regression` dan `Random Forest`. Random Forest hanya dipakai untuk menguji stabilitas pemilihan feature set, bukan sebagai model utama dalam perbandingan 6 algoritma proposal.
+
 Model utama sengaja tidak memakai:
 
 - `State`
@@ -90,7 +92,7 @@ Feature set yang dipilih:
 
 - `clinical_core_extreme`
 - label: `Set B - Clinical Core + Extreme`
-- alasan: performanya kompetitif terhadap feature set yang lebih kompleks, tetapi jauh lebih sederhana dan lebih mudah dijelaskan
+- alasan: pada screening dua anchor, performanya masih kompetitif terhadap feature set yang lebih kompleks, tetapi jauh lebih sederhana dan lebih mudah dijelaskan
 
 Model final:
 

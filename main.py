@@ -10,6 +10,8 @@ from practicefusion.pipelines.eda import run_eda
 from practicefusion.pipelines.prepare_data import run_prepare_data
 from practicefusion.pipelines.train import (
     FEATURE_SET_CHOICES,
+    FEATURE_SCREENING_MODEL_CHOICES,
+    MAIN_MODEL_NAMES,
     run_error_analysis,
     run_feature_set_screening,
     run_feature_leakage_audit,
@@ -24,7 +26,7 @@ from practicefusion.pipelines.train import (
     run_xai_analysis,
 )
 
-MODEL_CHOICES = ["Logistic Regression", "SVM", "KNN", "Gradient Boosting", "XGBoost", "LightGBM"]
+MODEL_CHOICES = MAIN_MODEL_NAMES
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -61,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--test-size", type=float, default=0.3, help="Proporsi test split.")
     train.add_argument("--random-state", type=int, default=42, help="Random state untuk split.")
 
-    feature_screen = subparsers.add_parser("feature-set-screen", help="Bandingkan feature set pada development CV dengan model anchor yang sama.")
+    feature_screen = subparsers.add_parser("feature-set-screen", help="Bandingkan feature set pada development CV dengan model anchor.")
     feature_screen.add_argument("--dataset", type=Path, default=APP_FINAL_DATASET_PATH, help="Path final dataset CSV.")
     feature_screen.add_argument("--out-dir", type=Path, default=TRAIN_OUTPUT_DIR, help="Folder output hasil feature-set screening.")
     feature_screen.add_argument(
@@ -74,9 +76,16 @@ def build_parser() -> argparse.ArgumentParser:
     feature_screen.add_argument(
         "--model",
         type=str,
-        default="XGBoost",
-        choices=MODEL_CHOICES,
-        help="Model anchor yang dipakai sama untuk semua feature set.",
+        default=None,
+        choices=FEATURE_SCREENING_MODEL_CHOICES,
+        help="Model anchor tunggal. Jika kosong, otomatis memakai Logistic Regression dan Random Forest.",
+    )
+    feature_screen.add_argument(
+        "--anchor-models",
+        nargs="*",
+        default=None,
+        choices=FEATURE_SCREENING_MODEL_CHOICES,
+        help="Daftar model anchor untuk feature-set screening. Jika kosong, otomatis memakai Logistic Regression dan Random Forest.",
     )
     feature_screen.add_argument("--n-splits", type=int, default=5, help="Jumlah fold untuk Stratified K-Fold.")
     feature_screen.add_argument("--test-size", type=float, default=0.3, help="Proporsi locked test.")
@@ -300,10 +309,13 @@ def main() -> int:
         return 0
 
     if args.command == "feature-set-screen":
+        anchor_models = args.anchor_models
+        if anchor_models is None and args.model is not None:
+            anchor_models = [args.model]
         result = run_feature_set_screening(
             dataset_path=args.dataset,
             out_dir=args.out_dir,
-            model_name=args.model,
+            anchor_models=anchor_models,
             selected_feature_sets=args.feature_sets,
             n_splits=args.n_splits,
             test_size=args.test_size,

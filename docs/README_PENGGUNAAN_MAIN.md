@@ -75,6 +75,12 @@ python main.py feature-set-screen
 
 Membandingkan kandidat feature set dengan model anchor yang sama. Tahap ini memilih feature set memakai development CV, bukan final test.
 
+Secara default command ini memakai dua anchor:
+- `Logistic Regression` untuk melihat pola linear/sederhana
+- `Random Forest` untuk melihat pola nonlinear
+
+Random Forest di sini hanya alat bantu sensitivitas feature set. Ia tidak masuk ke tabel perbandingan 6 model utama.
+
 Feature set kandidat:
 - `clinical_core`
 - `clinical_core_extreme`
@@ -83,6 +89,7 @@ Feature set kandidat:
 
 Output utama:
 - `outputs/app/train/feature_set_screening_summary.csv`
+- `outputs/app/train/feature_set_screening_anchor_summary.csv`
 - `outputs/app/train/feature_set_screening_report.md`
 - `outputs/app/train/selected_feature_set.json`
 

@@ -127,7 +127,13 @@ Command:
 python main.py feature-set-screen
 ```
 
-Tahap ini membandingkan Set A, B, C, dan D memakai model anchor yang sama. Tujuannya supaya efek feature set tidak bercampur dengan efek algoritma.
+Tahap ini membandingkan Set A, B, C, dan D memakai model anchor pada development CV. Tujuannya supaya pilihan feature set dibuat sebelum melihat locked test.
+
+Default terbaru memakai dua anchor:
+- `Logistic Regression`, sebagai model linear/sederhana
+- `Random Forest`, sebagai model nonlinear pembanding
+
+Random Forest di tahap ini hanya dipakai sebagai sensitivity check untuk feature set. Ia tidak masuk ke perbandingan 6 model utama.
 
 Aturan seleksi:
 - prioritas utama `mean PR-AUC`
@@ -137,16 +143,17 @@ Aturan seleksi:
 
 Output:
 - `outputs/app/train/feature_set_screening_summary.csv`
+- `outputs/app/train/feature_set_screening_anchor_summary.csv`
 - `outputs/app/train/feature_set_screening_report.md`
 - `outputs/app/train/selected_feature_set.json`
 
-Hasil run refactor terbaru:
-- `full_transcript_comparator`: mean PR-AUC `0.4416 +/- 0.0048`, recall `0.6998`
-- `clinical_core_extreme_weight`: mean PR-AUC `0.4400 +/- 0.0213`, recall `0.7186`
-- `clinical_core_extreme`: mean PR-AUC `0.4393 +/- 0.0312`, recall `0.7194`
-- `clinical_core`: mean PR-AUC `0.4221 +/- 0.0218`, recall `0.7352`
+Hasil run sensitivity dua anchor:
+- `full_transcript_comparator`: mean PR-AUC `0.4225 +/- 0.0248`, recall `0.4417`
+- `clinical_core_extreme_weight`: mean PR-AUC `0.4201 +/- 0.0269`, recall `0.4718`
+- `clinical_core_extreme`: mean PR-AUC `0.4164 +/- 0.0301`, recall `0.4884`
+- `clinical_core`: mean PR-AUC `0.3948 +/- 0.0338`, recall `0.4917`
 
-Feature set yang dipilih adalah `clinical_core_extreme` karena selisih PR-AUC terhadap set paling tinggi hanya `0.0023`, sedangkan Set B jauh lebih sederhana dan lebih mudah dijelaskan secara klinis.
+Feature set yang dipilih tetap `clinical_core_extreme`. Walaupun Set D punya PR-AUC gabungan tertinggi, gap Set B masih berada dalam rentang toleransi/stabilitas, sedangkan Set B jauh lebih sederhana, tidak memakai full transcript, dan lebih mudah dijelaskan secara klinis.
 
 ## 7. Model Comparison
 
