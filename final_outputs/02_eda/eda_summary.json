@@ -1,0 +1,221 @@
+{
+  "dataset_path": "D:\\Ratih\\PracticeFusion\\outputs\\app\\prepare_data\\final_dataset.csv",
+  "shape": {
+    "rows": 9916,
+    "cols": 2510
+  },
+  "label_summary": [
+    {
+      "DMIndicator": 0,
+      "count": 8017,
+      "pct": 80.85
+    },
+    {
+      "DMIndicator": 1,
+      "count": 1899,
+      "pct": 19.15
+    }
+  ],
+  "quality_checks": [
+    {
+      "metric": "Jumlah pasien final",
+      "count": 9916
+    },
+    {
+      "metric": "Jumlah fitur final",
+      "count": 2508
+    }
+  ],
+  "selected_numeric_summary": [
+    {
+      "feature": "Weight_Mean",
+      "mean_non_dm": 175.96134254415935,
+      "mean_dm": 194.1385345411632,
+      "abs_diff": 18.17719199700386
+    },
+    {
+      "feature": "Age",
+      "mean_non_dm": 52.31732568292379,
+      "mean_dm": 64.31279620853081,
+      "abs_diff": 11.995470525607026
+    },
+    {
+      "feature": "SystolicBP_Mean",
+      "mean_non_dm": 125.17620202154062,
+      "mean_dm": 131.60202926462406,
+      "abs_diff": 6.425827243083447
+    },
+    {
+      "feature": "BMI_Mean",
+      "mean_non_dm": 28.330182353432598,
+      "mean_dm": 31.39083164492122,
+      "abs_diff": 3.060649291488623
+    },
+    {
+      "feature": "DiagnosisCount",
+      "mean_non_dm": 9.104278408382187,
+      "mean_dm": 11.321221695629278,
+      "abs_diff": 2.2169432872470907
+    },
+    {
+      "feature": "Weight_NObs",
+      "mean_non_dm": 5.655856305351129,
+      "mean_dm": 7.086361242759347,
+      "abs_diff": 1.4305049374082177
+    },
+    {
+      "feature": "Height_NObs",
+      "mean_non_dm": 5.654858425845079,
+      "mean_dm": 7.085308056872038,
+      "abs_diff": 1.430449631026959
+    },
+    {
+      "feature": "VisitCount",
+      "mean_non_dm": 5.1958338530622425,
+      "mean_dm": 6.246445497630332,
+      "abs_diff": 1.0506116445680895
+    },
+    {
+      "feature": "DiastolicBP_Mean",
+      "mean_non_dm": 76.94310267326065,
+      "mean_dm": 76.57480914588469,
+      "abs_diff": 0.3682935273759682
+    },
+    {
+      "feature": "RespiratoryRate_Mean",
+      "mean_non_dm": 16.643435109181087,
+      "mean_dm": 16.900561854843378,
+      "abs_diff": 0.25712674566229055
+    },
+    {
+      "feature": "Temperature_Mean",
+      "mean_non_dm": 97.85838787214837,
+      "mean_dm": 97.72606175544722,
+      "abs_diff": 0.1323261167011509
+    }
+  ],
+  "top_diagnosis_diff": [
+    {
+      "feature": "DiagnosisCount",
+      "mean_non_dm": 9.104278408382187,
+      "mean_dm": 11.321221695629278,
+      "abs_diff": 2.2169432872470907
+    },
+    {
+      "feature": "VisitCount",
+      "mean_non_dm": 5.1958338530622425,
+      "mean_dm": 6.246445497630332,
+      "abs_diff": 1.0506116445680895
+    },
+    {
+      "feature": "Icd9_390-459",
+      "mean_non_dm": 0.7480354247224648,
+      "mean_dm": 1.5718799368088467,
+      "abs_diff": 0.823844512086382
+    },
+    {
+      "feature": "Icd9_240-279",
+      "mean_non_dm": 0.9177996756891605,
+      "mean_dm": 1.6266456029489205,
+      "abs_diff": 0.7088459272597599
+    },
+    {
+      "feature": "Icd9_780-799",
+      "mean_non_dm": 1.2719221653985282,
+      "mean_dm": 1.5129015271195365,
+      "abs_diff": 0.2409793617210083
+    },
+    {
+      "feature": "Icd9_710-739",
+      "mean_non_dm": 1.0737183485094175,
+      "mean_dm": 1.2748815165876777,
+      "abs_diff": 0.20116316807826018
+    },
+    {
+      "feature": "Icd9_580-629",
+      "mean_non_dm": 0.4762379942621928,
+      "mean_dm": 0.5897840968931016,
+      "abs_diff": 0.11354610263090881
+    },
+    {
+      "feature": "Icd9_290-319",
+      "mean_non_dm": 0.7010103529998752,
+      "mean_dm": 0.5961032122169563,
+      "abs_diff": 0.10490714078291896
+    },
+    {
+      "feature": "Icd9_E-V",
+      "mean_non_dm": 0.7914431832356243,
+      "mean_dm": 0.688783570300158,
+      "abs_diff": 0.10265961293546633
+    },
+    {
+      "feature": "Icd9_520-579",
+      "mean_non_dm": 0.4482973680928028,
+      "mean_dm": 0.5466034755134281,
+      "abs_diff": 0.09830610742062534
+    }
+  ],
+  "top_physician_diff": [
+    {
+      "feature": "PhySp_Internal_Medicine",
+      "mean_non_dm": 3.567294499189223,
+      "mean_dm": 6.476566614007372,
+      "abs_diff": 2.9092721148181493
+    },
+    {
+      "feature": "PhySp_General_Practice",
+      "mean_non_dm": 0.8143944118747661,
+      "mean_dm": 1.5318588730911005,
+      "abs_diff": 0.7174644612163343
+    },
+    {
+      "feature": "PhySp_Unknown",
+      "mean_non_dm": 0.2963702132967444,
+      "mean_dm": 0.5297525013164823,
+      "abs_diff": 0.23338228801973793
+    },
+    {
+      "feature": "PhySp_Psychiatry",
+      "mean_non_dm": 0.4147436697018835,
+      "mean_dm": 0.21116377040547657,
+      "abs_diff": 0.2035798992964069
+    },
+    {
+      "feature": "PhySp_Geriatric_Medicine",
+      "mean_non_dm": 0.24909567169764252,
+      "mean_dm": 0.430753027909426,
+      "abs_diff": 0.18165735621178347
+    },
+    {
+      "feature": "PhySp_Obstetrics_Gynecology",
+      "mean_non_dm": 0.3254334539104403,
+      "mean_dm": 0.15745129015271195,
+      "abs_diff": 0.16798216375772837
+    },
+    {
+      "feature": "PhySp_Nephrology",
+      "mean_non_dm": 0.03717101160034926,
+      "mean_dm": 0.16377040547656663,
+      "abs_diff": 0.12659939387621738
+    },
+    {
+      "feature": "PhySp_Endocrinology__Diabetes__Metabolism",
+      "mean_non_dm": 0.06473743295497068,
+      "mean_dm": 0.19062664560294892,
+      "abs_diff": 0.12588921264797825
+    },
+    {
+      "feature": "PhySp_Family_Practice",
+      "mean_non_dm": 5.606960209554696,
+      "mean_dm": 5.506582411795682,
+      "abs_diff": 0.10037779775901434
+    },
+    {
+      "feature": "PhySp_Pain_Medicine",
+      "mean_non_dm": 0.11325932393663465,
+      "mean_dm": 0.01685097419694576,
+      "abs_diff": 0.0964083497396889
+    }
+  ]
+}

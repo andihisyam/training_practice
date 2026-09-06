@@ -1,0 +1,78 @@
+{
+  "created_at": "2026-09-06T10:35:20+07:00",
+  "dataset_path": "D:\\Ratih\\PracticeFusion\\outputs\\app\\prepare_data\\final_dataset.csv",
+  "n_rows": 9916,
+  "positive_count": 1899,
+  "negative_count": 8017,
+  "test_size": 0.3,
+  "random_state": 42,
+  "n_splits": 5,
+  "selected_feature_set": "clinical_core_extreme",
+  "metadata_counts": {
+    "categorical": 1,
+    "numeric_demographic": 1,
+    "transcript": 35,
+    "clinical_core": 5,
+    "clinical_core_extreme": 8,
+    "clinical_core_extreme_weight": 10,
+    "site": 2,
+    "diagnosis": 25,
+    "physician": 61,
+    "medication": 2382,
+    "all_candidate_cols": 37,
+    "primary_forbidden_patterns": 10
+  },
+  "checks": [
+    {
+      "check": "one_patient_one_row",
+      "status": "pass",
+      "details": "Duplicated PatientGuid rows: 0"
+    },
+    {
+      "check": "development_test_patient_disjoint",
+      "status": "pass",
+      "details": "PatientGuid overlap count: 0"
+    },
+    {
+      "check": "reproducible_split",
+      "status": "pass",
+      "details": "Same random_state=42 produces identical index split: True"
+    },
+    {
+      "check": "test_set_never_enters_cv",
+      "status": "pass",
+      "details": "Validation/test index overlap across folds: 0"
+    },
+    {
+      "check": "no_forbidden_features__clinical_core",
+      "status": "pass",
+      "details": "No forbidden feature found."
+    },
+    {
+      "check": "no_forbidden_features__clinical_core_extreme",
+      "status": "pass",
+      "details": "No forbidden feature found."
+    },
+    {
+      "check": "no_forbidden_features__clinical_core_extreme_weight",
+      "status": "pass",
+      "details": "No forbidden feature found."
+    },
+    {
+      "check": "no_forbidden_features__full_transcript_comparator",
+      "status": "pass",
+      "details": "No forbidden feature found."
+    },
+    {
+      "check": "primary_set_b_explicit_allowlist",
+      "status": "pass",
+      "details": "Missing: []; extra: []"
+    },
+    {
+      "check": "smote_train_fold_only_design",
+      "status": "pass",
+      "details": "SMOTE comparison uses collect_cv_results with train_idx/val_idx per fold and fit_resample is applied only after selecting X_train."
+    }
+  ],
+  "overall_status": "pass"
+}

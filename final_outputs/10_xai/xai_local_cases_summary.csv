@@ -1,0 +1,5 @@
+case_label,threshold,sample_index,PatientGuid,y_true,y_pred,y_score,error_type,top_features
+tp_high_confidence,0.35,9335,B8778417-72AD-4D5D-9CBA-F0F11E1311A3,1,1,0.9147152900695801,TP,"SystolicBP_Max, Age, DiastolicBP_Mean, BMI_Max, BMI_Mean"
+fn_borderline,0.35,7021,6442F95F-6303-4019-B3BC-B34F4513D328,1,0,0.3482814431190491,FN,"BMI_Mean, Age, SystolicBP_Max, DiastolicBP_Mean, BMI_Max"
+fp_high_confidence,0.35,4629,96E79E0C-1C1A-4F62-AD7A-74DFC08FAA78,0,1,0.9258854985237122,FP,"SystolicBP_Max, Age, BMI_Max, BMI_Mean, SystolicBP_Mean"
+tn_borderline,0.35,3664,978A9775-7AED-4F41-B967-5DD546CCD842,0,0,0.3499654531478882,TN,"BMI_Max, BMI_Mean, Age, DiastolicBP_Mean, SystolicBP_Mean"

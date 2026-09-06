@@ -1,0 +1,2 @@
+feature_set,feature_set_label,feature_set_role,model,no_smote_pr_auc,smote_pr_auc,delta_pr_auc,no_smote_recall,smote_recall,delta_recall,no_smote_precision,smote_precision,delta_precision,no_smote_f1,smote_f1,delta_f1,no_smote_f2,smote_f2,delta_f2
+clinical_core_extreme,Set B - Clinical Core + Extreme,primary,XGBoost,0.4366,0.4231,-0.0135,0.1475,0.5711,0.4236,0.5499,0.3873,-0.1625,0.2324,0.4609,0.2286,0.1727,0.521,0.3483

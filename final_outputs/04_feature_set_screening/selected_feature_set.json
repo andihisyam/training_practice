@@ -1,0 +1,41 @@
+{
+  "created_at": "2026-09-06T10:34:55+07:00",
+  "selected_feature_set": "clinical_core_extreme",
+  "selected_feature_set_label": "Set B - Clinical Core + Extreme",
+  "selection_model": null,
+  "selection_models": [
+    "Logistic Regression",
+    "Random Forest"
+  ],
+  "selection_metric": "mean_pr_auc_across_anchors",
+  "selection_rule": "PR-AUC + stability + parsimony",
+  "rationale": "Feature set ini dipilih karena performanya masih kompetitif terhadap PR-AUC tertinggi (gap 0.0061) dan lebih sederhana secara metodologis.",
+  "n_splits": 5,
+  "random_state": 42,
+  "metrics": {
+    "anchors": 2.0,
+    "mean_n_features": 8.0,
+    "min_n_features": 8.0,
+    "max_n_features": 8.0,
+    "mean_accuracy": 0.7485227694752721,
+    "std_accuracy": 0.007959889345087635,
+    "mean_precision": 0.4200248324137983,
+    "std_precision": 0.019086501076278885,
+    "mean_recall": 0.48835721378918995,
+    "std_recall": 0.01865594236200597,
+    "mean_specificity": 0.810136777126458,
+    "std_specificity": 0.007104272960219772,
+    "mean_npv": 0.8761461685299636,
+    "std_npv": 0.004751066564614265,
+    "mean_f1": 0.4064897704914529,
+    "std_f1": 0.01838252927801177,
+    "mean_f2": 0.44069444887967024,
+    "std_f2": 0.018365107425077597,
+    "mean_roc_auc": 0.7657197911661626,
+    "std_roc_auc": 0.01616625445736528,
+    "mean_pr_auc": 0.4164018406838824,
+    "std_pr_auc": 0.030055060540718038,
+    "mean_brier_score": 0.1673318124678853,
+    "std_brier_score": 0.005265083039745556
+  }
+}

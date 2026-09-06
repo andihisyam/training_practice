@@ -1,0 +1,2 @@
+feature_set,feature_set_label,feature_set_role,model,weighted_pr_auc,unweighted_pr_auc,delta_pr_auc_weighted_minus_unweighted,weighted_recall,unweighted_recall,delta_recall_weighted_minus_unweighted,weighted_precision,unweighted_precision,delta_precision_weighted_minus_unweighted,weighted_f1,unweighted_f1,delta_f1_weighted_minus_unweighted,weighted_f2,unweighted_f2,delta_f2_weighted_minus_unweighted
+clinical_core_extreme,Set B - Clinical Core + Extreme,primary,XGBoost,0.4393,0.4366,0.0028,0.7194,0.1475,0.5719,0.3409,0.5499,-0.209,0.4625,0.2324,0.2301,0.5886,0.1727,0.4158
