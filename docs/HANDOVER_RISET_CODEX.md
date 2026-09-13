@@ -164,6 +164,268 @@ Memakai fitur transcript lebih lengkap, tetapi tetap tanpa State, physician, dia
 
 Tujuan: pembanding kompleks. Bukan otomatis kandidat utama.
 
+## 5.1 Detail Fitur Transcript yang Pernah Dibahas
+
+Transcript direbuild dari raw data menjadi beberapa jenis agregasi.
+
+Untuk setiap variabel klinis utama, format fiturnya kira-kira seperti ini:
+
+```text
+Height_Min, Height_Max, Height_Mean, Height_NObs, Height_Change
+Weight_Min, Weight_Max, Weight_Mean, Weight_NObs, Weight_Change
+BMI_Min, BMI_Max, BMI_Mean, BMI_NObs, BMI_Change
+SystolicBP_Min, SystolicBP_Max, SystolicBP_Mean, SystolicBP_NObs, SystolicBP_Change
+DiastolicBP_Min, DiastolicBP_Max, DiastolicBP_Mean, DiastolicBP_NObs, DiastolicBP_Change
+RespiratoryRate_Min, RespiratoryRate_Max, RespiratoryRate_Mean, RespiratoryRate_NObs, RespiratoryRate_Change
+Temperature_Min, Temperature_Max, Temperature_Mean, Temperature_NObs, Temperature_Change
+```
+
+Arti sederhananya:
+
+- `Mean`: nilai rata-rata pasien selama tercatat.
+- `Max`: nilai tertinggi pasien selama tercatat.
+- `Min`: nilai terendah pasien selama tercatat.
+- `NObs`: jumlah observasi/catatan untuk variabel itu.
+- `Change`: selisih/perubahan nilai dari awal ke akhir catatan.
+
+Tidak semua fitur ini masuk ke model utama. Fitur lengkap tetap disimpan untuk Set D sebagai pembanding, tetapi model final sengaja dibuat lebih sederhana.
+
+## 5.2 Kenapa Model Final Tidak Memakai `Min`
+
+Fitur `Min` tidak dipakai di feature set final.
+
+Alasannya:
+
+- Untuk screening diabetes, sinyal yang lebih mudah dijelaskan biasanya nilai rata-rata dan nilai tinggi/ekstrem, bukan nilai terendah.
+- `BMI_Min` atau tekanan darah minimum bisa terjadi karena variasi kunjungan, kondisi sementara, atau pencatatan yang tidak stabil.
+- Jika `Min`, `Mean`, dan `Max` semua dimasukkan, fitur menjadi lebih banyak dan saling mirip.
+- Kita ingin model final sederhana dan mudah dijelaskan.
+
+Jadi keputusan final:
+
+```text
+Min tidak dipakai pada primary feature set.
+```
+
+Namun `Min` tetap tersedia di Set D sebagai pembanding transcript lengkap.
+
+## 5.3 Kenapa Model Final Memakai `Mean`
+
+`Mean` dipakai karena paling mudah dijelaskan sebagai gambaran umum kondisi pasien.
+
+Contoh:
+
+- `BMI_Mean` = rata-rata BMI pasien.
+- `SystolicBP_Mean` = rata-rata tekanan darah sistolik.
+- `DiastolicBP_Mean` = rata-rata tekanan darah diastolik.
+
+Alasan:
+
+- lebih stabil daripada hanya satu catatan
+- cocok untuk data EHR yang bisa punya banyak kunjungan
+- mudah dijelaskan di laporan dan sidang
+
+## 5.4 Kenapa Model Final Memakai `Max`
+
+`Max` dipakai untuk menangkap kondisi ekstrem yang mungkin tidak terlihat dari rata-rata.
+
+Contoh:
+
+- pasien punya `BMI_Mean` sedang, tetapi pernah punya `BMI_Max` tinggi
+- pasien punya tekanan darah rata-rata tidak terlalu tinggi, tetapi pernah mencapai nilai maksimum yang tinggi
+
+Alasan:
+
+- diabetes dan risiko metabolik bisa berkaitan dengan kondisi ekstrem/terburuk yang pernah tercatat
+- `Max` menambah informasi tanpa membuat fitur terlalu banyak
+- hasil SHAP juga menunjukkan `BMI_Max` dan `SystolicBP_Max` penting
+
+Jadi Set B memakai kombinasi:
+
+```text
+Mean + Max
+```
+
+bukan semua agregat transcript.
+
+## 5.5 Kenapa `NObs` Tidak Dipakai di Model Final
+
+`NObs` berarti jumlah observasi.
+
+Contoh:
+
+```text
+BMI_NObs = berapa kali BMI pasien tercatat
+SystolicBP_NObs = berapa kali tekanan darah sistolik tercatat
+```
+
+Fitur ini tidak dipakai di model utama.
+
+Alasannya:
+
+- `NObs` lebih banyak menggambarkan intensitas pencatatan/kunjungan, bukan kondisi biologis pasien.
+- Pasien DM bisa punya lebih banyak catatan karena lebih sering kontrol.
+- Kalau `NObs` dipakai, model bisa belajar bahwa "pasien yang sering dicatat" lebih mungkin DM.
+- Itu berisiko menjadi proxy healthcare utilization, bukan sinyal klinis murni.
+
+Jadi keputusan final:
+
+```text
+NObs tidak dipakai pada primary model.
+```
+
+Tetapi `NObs` tetap boleh ada di Set D untuk sensitivity/comparator.
+
+## 5.6 Kenapa `Change` Tidak Dipakai di Model Final
+
+`Change` berarti perubahan nilai dari catatan awal ke catatan akhir.
+
+Contoh:
+
+```text
+BMI_Change
+SystolicBP_Change
+DiastolicBP_Change
+```
+
+Fitur ini tidak dipakai di model utama.
+
+Alasannya:
+
+- urutan waktu di dataset belum cukup kuat untuk dipakai sebagai analisis temporal yang benar-benar aman
+- perubahan nilai bisa dipengaruhi oleh lama observasi pasien
+- pasien yang sudah DM mungkin sudah menjalani perawatan sehingga nilainya berubah setelah diagnosis
+- kalau dipakai, ada risiko model menangkap efek perawatan atau follow-up, bukan kondisi awal pasien
+
+Jadi keputusan final:
+
+```text
+Change tidak dipakai pada primary model.
+```
+
+## 5.7 Kenapa Height Tidak Dipakai
+
+Fitur height tersedia dari transcript:
+
+```text
+Height_Min
+Height_Max
+Height_Mean
+Height_NObs
+Height_Change
+```
+
+Tapi height tidak masuk model final.
+
+Alasannya:
+
+- tinggi badan relatif stabil pada pasien dewasa
+- sinyal metabolik tinggi badan sudah lebih masuk akal jika digabung dalam BMI
+- memasukkan height bersamaan dengan BMI bisa menambah fitur tanpa manfaat klinis yang jelas
+
+Jadi model final memilih BMI, bukan height.
+
+## 5.8 Kenapa Weight Tidak Masuk Model Final Utama
+
+Weight sempat diuji di Set C:
+
+```text
+Weight_Mean
+Weight_Max
+```
+
+Tujuannya untuk melihat apakah berat badan mentah menambah informasi setelah BMI tersedia.
+
+Hasilnya, Set C tidak cukup unggul dibanding Set B.
+
+Alasan tidak dipakai di final:
+
+- BMI sudah menggabungkan berat dan tinggi badan
+- weight bisa bias terhadap tinggi badan
+- tambahan performa tidak cukup besar untuk membenarkan fitur tambahan
+
+Jadi keputusan final:
+
+```text
+Weight tidak dipakai di feature set final, tetapi sudah diuji sebagai Set C.
+```
+
+## 5.9 Kenapa Respiratory Rate dan Temperature Tidak Dipakai
+
+Respiratory rate dan temperature tersedia di transcript lengkap.
+
+Namun keduanya tidak masuk feature set final.
+
+Alasannya:
+
+- missing rate relatif lebih tinggi dibanding BMI dan tekanan darah
+- secara klinis lebih menggambarkan kondisi akut/sementara
+- tidak terlalu langsung menjelaskan status diabetes dibanding umur, BMI, dan tekanan darah
+- memasukkannya membuat model lebih kompleks
+
+Jadi keduanya hanya dipakai di Set D sebagai comparator transcript lengkap, bukan model utama.
+
+## 5.10 Kenapa Fitur Diagnosis Count, Visit Count, dan Acute Tidak Dipakai
+
+Di blok diagnosis ada fitur seperti:
+
+```text
+DiagnosisCount
+VisitCount
+DiagnosisFreq
+AcuteCount
+AcuteFreq
+Icd9_*
+```
+
+Fitur ini tidak dipakai di model utama.
+
+Alasannya:
+
+- `DiagnosisCount` dan `VisitCount` bisa mencerminkan seberapa sering pasien berinteraksi dengan fasilitas kesehatan.
+- Pasien DM mungkin lebih sering kontrol, sehingga jumlah diagnosis/visit menjadi proxy status DM.
+- `AcuteCount` dan `AcuteFreq` berasal dari blok diagnosis, sehingga tetap dekat dengan pola diagnosis dan pemanfaatan layanan.
+- `Icd9_*` terlalu dekat dengan label penyakit.
+
+Jadi keputusan final:
+
+```text
+DiagnosisCount, VisitCount, DiagnosisFreq, AcuteCount, AcuteFreq, dan Icd9_* tidak dipakai pada primary model.
+```
+
+Fitur-fitur ini hanya dipakai untuk leakage audit/check agar kita bisa menunjukkan kenapa fitur diagnosis memang berisiko.
+
+## 5.11 Ringkasan Keputusan Fitur Final
+
+Fitur yang dipakai di model final:
+
+```text
+Gender
+Age
+BMI_Mean
+BMI_Max
+SystolicBP_Mean
+SystolicBP_Max
+DiastolicBP_Mean
+DiastolicBP_Max
+```
+
+Fitur yang pernah tersedia/dibahas tetapi tidak dipakai di model final:
+
+| Kelompok | Contoh Fitur | Keputusan | Alasan Sederhana |
+|---|---|---|---|
+| Min | `BMI_Min`, `SystolicBP_Min`, `DiastolicBP_Min` | tidak dipakai final | kurang stabil dan menambah fitur mirip |
+| NObs | `BMI_NObs`, `SystolicBP_NObs` | tidak dipakai final | proxy jumlah kunjungan/pencatatan |
+| Change | `BMI_Change`, `SystolicBP_Change` | tidak dipakai final | rawan efek waktu/perawatan |
+| Height | `Height_Mean`, `Height_Max` | tidak dipakai final | sinyalnya sudah lebih masuk akal lewat BMI |
+| Weight | `Weight_Mean`, `Weight_Max` | diuji di Set C, tidak final | tidak cukup menambah performa setelah BMI |
+| Respiratory/Temperature | `RespiratoryRate_Mean`, `Temperature_Mean` | hanya comparator | lebih akut/sementara dan missing lebih tinggi |
+| Diagnosis | `Icd9_*`, `DiagnosisCount` | tidak dipakai final | rawan leakage |
+| Acute | `AcuteCount`, `AcuteFreq` | tidak dipakai final | bagian dari diagnosis/utilization |
+| Medication | obat/kelompok obat | tidak dipakai final | rawan shortcut diabetes |
+| Physician | `PhySp_*` | tidak dipakai final | proxy jalur layanan |
+| Site/ID | `State`, `PracticeGuid`, `PatientGuid` | tidak dipakai final | metadata/proxy lokasi/fasilitas |
+
 ## 6. Strategi Evaluasi
 
 Split data:
