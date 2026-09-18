@@ -95,8 +95,11 @@ Berisi evaluasi final pada locked test.
 File penting:
 - `report.md`
 - `final_test_results.csv`
+- `final_test_predictions_for_curves.csv`
 - `calibration_clinical_core_extreme_XGBoost.csv`
 - `calibration_clinical_core_extreme_XGBoost.png`
+
+`final_test_predictions_for_curves.csv` berisi `y_true` dan `y_score` tanpa `PatientGuid`, sehingga bisa dipakai untuk membuat ROC curve, PR curve, ROC-AUC, dan PR-AUC tanpa perlu mem-push dataset final besar.
 
 ### `09_error_analysis`
 
