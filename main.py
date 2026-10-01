@@ -19,6 +19,7 @@ from practicefusion.pipelines.train import (
     run_methodology_checks,
     run_main_cv,
     run_optuna_tuning,
+    run_sklearn_search_tuning,
     run_smote_comparison,
     run_threshold_tuning,
     run_training,
@@ -173,6 +174,30 @@ def build_parser() -> argparse.ArgumentParser:
     optuna.add_argument("--n-splits", type=int, default=5, help="Jumlah fold untuk development CV.")
     optuna.add_argument("--test-size", type=float, default=0.3, help="Proporsi locked test.")
     optuna.add_argument("--random-state", type=int, default=42, help="Random state untuk split, CV, dan sampler.")
+
+    sklearn_tune = subparsers.add_parser("sklearn-tune", help="Bandingkan GridSearchCV dan RandomizedSearchCV pada model/feature set terpilih.")
+    sklearn_tune.add_argument("--dataset", type=Path, default=APP_FINAL_DATASET_PATH, help="Path final dataset CSV.")
+    sklearn_tune.add_argument("--out-dir", type=Path, default=TRAIN_OUTPUT_DIR, help="Folder output hasil Grid/Random Search.")
+    sklearn_tune.add_argument(
+        "--feature-set",
+        type=str,
+        default=None,
+        choices=FEATURE_SET_CHOICES,
+        help="Feature set yang ingin di-tune. Kosong berarti feature set terpilih dari screening.",
+    )
+    sklearn_tune.add_argument(
+        "--model",
+        type=str,
+        default="XGBoost",
+        choices=MODEL_CHOICES,
+        help="Model yang ingin di-tune.",
+    )
+    sklearn_tune.add_argument("--n-iter", type=int, default=20, help="Jumlah kombinasi RandomizedSearchCV.")
+    sklearn_tune.add_argument("--n-splits", type=int, default=5, help="Jumlah fold untuk development CV.")
+    sklearn_tune.add_argument("--test-size", type=float, default=0.3, help="Proporsi locked test.")
+    sklearn_tune.add_argument("--random-state", type=int, default=42, help="Random state untuk split, CV, dan random search.")
+    sklearn_tune.add_argument("--skip-grid", action="store_true", help="Lewati GridSearchCV.")
+    sklearn_tune.add_argument("--skip-random", action="store_true", help="Lewati RandomizedSearchCV.")
 
     threshold = subparsers.add_parser("threshold-tune", help="Cari threshold terbaik untuk model kandidat pada feature set yang dipilih.")
     threshold.add_argument("--dataset", type=Path, default=APP_FINAL_DATASET_PATH, help="Path final dataset CSV.")
@@ -391,6 +416,24 @@ def main() -> int:
         print(f"Optuna best params saved to: {result['summary_path']}")
         return 0
 
+    if args.command == "sklearn-tune":
+        result = run_sklearn_search_tuning(
+            dataset_path=args.dataset,
+            out_dir=args.out_dir,
+            feature_set_name=args.feature_set,
+            model_name=args.model,
+            n_iter=args.n_iter,
+            n_splits=args.n_splits,
+            test_size=args.test_size,
+            random_state=args.random_state,
+            include_grid=not args.skip_grid,
+            include_random=not args.skip_random,
+        )
+        print(f"Grid/Random Search results saved to: {result['results_path']}")
+        print(f"Grid/Random Search comparison saved to: {result['summary_path']}")
+        print(f"Grid/Random Search report saved to: {result['report_path']}")
+        return 0
+
     if args.command == "threshold-tune":
         result = run_threshold_tuning(
             dataset_path=args.dataset,
@@ -509,6 +552,12 @@ def main() -> int:
             test_size=args.test_size,
             random_state=args.random_state,
         )
+        sklearn_search_result = run_sklearn_search_tuning(
+            dataset_path=prepare_result["final_dataset_path"],
+            out_dir=args.train_out_dir,
+            test_size=args.test_size,
+            random_state=args.random_state,
+        )
         threshold_result = run_threshold_tuning(
             dataset_path=prepare_result["final_dataset_path"],
             out_dir=args.train_out_dir,
@@ -543,6 +592,7 @@ def main() -> int:
         print(f"Weighting report: {weighting_result['report_path']}")
         print(f"SMOTE report: {smote_result['report_path']}")
         print(f"Optuna report: {optuna_result['report_path']}")
+        print(f"Grid/Random Search report: {sklearn_search_result['report_path']}")
         print(f"Threshold report: {threshold_result['report_path']}")
         print(f"Training report: {train_result['report_path']}")
         print(f"Error analysis report: {error_result['report_path']}")

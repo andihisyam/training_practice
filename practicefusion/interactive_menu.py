@@ -21,6 +21,7 @@ from practicefusion.pipelines.train import (
     run_methodology_checks,
     run_main_cv,
     run_optuna_tuning,
+    run_sklearn_search_tuning,
     run_smote_comparison,
     run_threshold_tuning,
     run_training,
@@ -62,6 +63,7 @@ REPORT_PATHS = {
     "Report SMOTE": TRAIN_OUTPUT_DIR / "smote_comparison_report.md",
     "Report cross validation": TRAIN_OUTPUT_DIR / "main_cv_report.md",
     "Report Optuna": TRAIN_OUTPUT_DIR / "optuna_report.md",
+    "Report Grid/Random Search": TRAIN_OUTPUT_DIR / "sklearn_search_tuning_report.md",
     "Report threshold tuning": TRAIN_OUTPUT_DIR / "threshold_tuning_report.md",
     "Report error analysis": TRAIN_OUTPUT_DIR / "error_analysis_report.md",
     "Report XAI": TRAIN_OUTPUT_DIR / "xai" / "xai_report.md",
@@ -123,11 +125,12 @@ def run_pipeline_menu() -> None:
                 ("8", "Weighting Comparison"),
                 ("9", "SMOTE Comparison"),
                 ("10", "Optuna Tuning"),
-                ("11", "Threshold Tuning"),
-                ("12", "Final Evaluation"),
-                ("13", "Error Analysis"),
-                ("14", "XAI"),
-                ("15", "Jalankan Semua Tahap Bersih"),
+                ("11", "Grid/Random Search Tuning"),
+                ("12", "Threshold Tuning"),
+                ("13", "Final Evaluation"),
+                ("14", "Error Analysis"),
+                ("15", "XAI"),
+                ("16", "Jalankan Semua Tahap Bersih"),
                 ("0", "Kembali"),
             ],
         )
@@ -146,11 +149,12 @@ def run_pipeline_menu() -> None:
             "8": ("Weighting Comparison", lambda: run_weighting_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
             "9": ("SMOTE Comparison", lambda: run_smote_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
             "10": ("Optuna Tuning", lambda: run_optuna_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "11": ("Threshold Tuning", lambda: run_threshold_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "12": ("Final Evaluation", lambda: run_training(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "13": ("Error Analysis", lambda: run_error_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "14": ("XAI", lambda: run_xai_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
-            "15": ("Semua Tahap Bersih", run_all_clean_steps),
+            "11": ("Grid/Random Search Tuning", lambda: run_sklearn_search_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "12": ("Threshold Tuning", lambda: run_threshold_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "13": ("Final Evaluation", lambda: run_training(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "14": ("Error Analysis", lambda: run_error_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "15": ("XAI", lambda: run_xai_analysis(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)),
+            "16": ("Semua Tahap Bersih", run_all_clean_steps),
         }
 
         label, action = actions.get(choice, (None, None))
@@ -173,17 +177,18 @@ def run_results_menu() -> None:
                 ("5", "Lihat report methodology check"),
                 ("6", "Lihat report cross validation"),
                 ("7", "Lihat report Optuna"),
-                ("8", "Lihat report threshold tuning"),
-                ("9", "Lihat report training"),
-                ("10", "Lihat report leakage audit"),
-                ("11", "Lihat report leakage check"),
-                ("12", "Lihat report weighting"),
-                ("13", "Lihat report SMOTE"),
-                ("14", "Lihat report error analysis"),
-                ("15", "Lihat report XAI"),
-                ("16", "Lihat top fitur SHAP"),
-                ("17", "Lihat status artefak"),
-                ("18", "Lihat kesimpulan umum"),
+                ("8", "Lihat report Grid/Random Search"),
+                ("9", "Lihat report threshold tuning"),
+                ("10", "Lihat report training"),
+                ("11", "Lihat report leakage audit"),
+                ("12", "Lihat report leakage check"),
+                ("13", "Lihat report weighting"),
+                ("14", "Lihat report SMOTE"),
+                ("15", "Lihat report error analysis"),
+                ("16", "Lihat report XAI"),
+                ("17", "Lihat top fitur SHAP"),
+                ("18", "Lihat status artefak"),
+                ("19", "Lihat kesimpulan umum"),
                 ("0", "Kembali"),
             ],
         )
@@ -199,23 +204,24 @@ def run_results_menu() -> None:
             "5": "Report methodology check",
             "6": "Report cross validation",
             "7": "Report Optuna",
-            "8": "Report threshold tuning",
-            "9": "Report training",
-            "10": "Report leakage audit",
-            "11": "Report leakage check",
-            "12": "Report weighting",
-            "13": "Report SMOTE",
-            "14": "Report error analysis",
-            "15": "Report XAI",
+            "8": "Report Grid/Random Search",
+            "9": "Report threshold tuning",
+            "10": "Report training",
+            "11": "Report leakage audit",
+            "12": "Report leakage check",
+            "13": "Report weighting",
+            "14": "Report SMOTE",
+            "15": "Report error analysis",
+            "16": "Report XAI",
         }
 
         if choice in report_choices:
             show_text_file(REPORT_PATHS[report_choices[choice]])
-        elif choice == "16":
-            show_top_shap_features()
         elif choice == "17":
-            show_artifact_status()
+            show_top_shap_features()
         elif choice == "18":
+            show_artifact_status()
+        elif choice == "19":
             show_general_conclusion()
         else:
             print_message("Pilihan tidak dikenali. Coba lagi.")
@@ -275,6 +281,7 @@ def run_all_clean_steps() -> dict[str, Any]:
     results["weighting"] = run_weighting_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["smote"] = run_smote_comparison(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["optuna"] = run_optuna_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
+    results["sklearn_search"] = run_sklearn_search_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["threshold"] = run_threshold_tuning(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["training"] = run_training(dataset_path=APP_FINAL_DATASET_PATH, out_dir=TRAIN_OUTPUT_DIR)
     results["error_analysis"] = run_error_analysis(
@@ -359,6 +366,7 @@ def show_artifact_status() -> None:
         "Methodology check report": REPORT_PATHS["Report methodology check"],
         "CV report": REPORT_PATHS["Report cross validation"],
         "Optuna report": REPORT_PATHS["Report Optuna"],
+        "Grid/Random Search report": REPORT_PATHS["Report Grid/Random Search"],
         "Threshold report": REPORT_PATHS["Report threshold tuning"],
         "Training report": REPORT_PATHS["Report training"],
         "Leakage audit report": REPORT_PATHS["Report leakage audit"],

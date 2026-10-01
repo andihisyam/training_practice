@@ -28,8 +28,9 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    make_scorer,
 )
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -3297,6 +3298,407 @@ def sample_optuna_params(trial: Any, model_name: str) -> dict[str, Any]:
             "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 5.0, log=True),
         }
     raise ValueError(f"Optuna belum dikonfigurasi untuk model `{model_name}`.")
+
+
+def get_sklearn_search_spaces(model_name: str) -> tuple[dict[str, list[Any]], dict[str, list[Any]]]:
+    if model_name == "XGBoost":
+        grid_params = {
+            "model__n_estimators": [100, 200],
+            "model__max_depth": [3, 4],
+            "model__learning_rate": [0.03, 0.08],
+            "model__min_child_weight": [1, 5],
+            "model__subsample": [0.8],
+            "model__colsample_bytree": [0.8],
+            "model__reg_lambda": [1.0],
+            "model__reg_alpha": [0.0],
+        }
+        random_params = {
+            "model__n_estimators": [100, 150, 200, 250, 300, 350],
+            "model__max_depth": [3, 4, 5, 6, 7],
+            "model__learning_rate": [0.01, 0.02, 0.03, 0.05, 0.08, 0.12],
+            "model__subsample": [0.65, 0.75, 0.85, 1.0],
+            "model__colsample_bytree": [0.65, 0.75, 0.85, 1.0],
+            "model__min_child_weight": [1, 3, 5, 7, 10],
+            "model__reg_lambda": [0.01, 0.1, 1.0, 3.0, 10.0],
+            "model__reg_alpha": [0.0, 0.001, 0.01, 0.1, 1.0],
+        }
+        return grid_params, random_params
+
+    if model_name == "Logistic Regression":
+        params = {
+            "model__C": [0.001, 0.01, 0.1, 1.0, 10.0, 20.0],
+            "model__penalty": ["l2"],
+        }
+        return params, params
+
+    if model_name == "SVM":
+        params = {
+            "model__C": [0.01, 0.1, 1.0, 10.0],
+            "model__kernel": ["linear", "rbf"],
+            "model__gamma": ["scale", "auto"],
+        }
+        return params, params
+
+    if model_name == "KNN":
+        params = {
+            "model__n_neighbors": [5, 7, 11, 15, 21, 31],
+            "model__weights": ["uniform", "distance"],
+            "model__p": [1, 2],
+        }
+        return params, params
+
+    if model_name == "Gradient Boosting":
+        grid_params = {
+            "model__n_estimators": [100, 200],
+            "model__learning_rate": [0.03, 0.08],
+            "model__min_samples_leaf": [1, 10],
+            "model__subsample": [0.8, 1.0],
+        }
+        random_params = {
+            "model__n_estimators": [100, 150, 200, 250, 300],
+            "model__learning_rate": [0.02, 0.03, 0.05, 0.08, 0.12],
+            "model__min_samples_leaf": [1, 3, 5, 10, 20],
+            "model__subsample": [0.65, 0.75, 0.85, 1.0],
+        }
+        return grid_params, random_params
+
+    if model_name == "LightGBM":
+        grid_params = {
+            "model__n_estimators": [100, 200],
+            "model__learning_rate": [0.03, 0.08],
+            "model__num_leaves": [15, 31],
+            "model__min_child_samples": [10, 30],
+        }
+        random_params = {
+            "model__n_estimators": [100, 150, 200, 250, 300],
+            "model__learning_rate": [0.01, 0.02, 0.03, 0.05, 0.08, 0.12],
+            "model__num_leaves": [15, 31, 45, 63],
+            "model__min_child_samples": [5, 10, 20, 30, 50],
+            "model__subsample": [0.65, 0.75, 0.85, 1.0],
+            "model__colsample_bytree": [0.65, 0.75, 0.85, 1.0],
+            "model__reg_lambda": [0.01, 0.1, 1.0, 3.0, 10.0],
+            "model__reg_alpha": [0.0, 0.001, 0.01, 0.1, 1.0],
+        }
+        return grid_params, random_params
+
+    raise ValueError(f"Grid/Random Search belum dikonfigurasi untuk model `{model_name}`.")
+
+
+def strip_pipeline_param_prefix(params: dict[str, Any]) -> dict[str, Any]:
+    return {key.replace("model__", "", 1): value for key, value in params.items()}
+
+
+def cv_results_to_frame(search_name: str, cv_results: dict[str, Any]) -> pd.DataFrame:
+    result_df = pd.DataFrame(cv_results)
+    keep_cols = [
+        "rank_test_pr_auc",
+        "mean_test_pr_auc",
+        "std_test_pr_auc",
+        "mean_test_recall",
+        "std_test_recall",
+        "mean_test_precision",
+        "std_test_precision",
+        "mean_test_f2",
+        "std_test_f2",
+        "mean_test_roc_auc",
+        "std_test_roc_auc",
+        "params",
+    ]
+    keep_cols = [col for col in keep_cols if col in result_df.columns]
+    result_df = result_df[keep_cols].copy()
+    result_df.insert(0, "search_method", search_name)
+    return result_df.sort_values("rank_test_pr_auc").reset_index(drop=True)
+
+
+def build_search_pipeline_for_experiment(
+    df: pd.DataFrame,
+    feature_cols: list[str],
+    model_name: str,
+    development_idx: pd.Index,
+    random_state: int,
+    use_class_balancing: bool,
+) -> tuple[Pipeline, pd.DataFrame, pd.Series, list[str], dict[str, list[str]]]:
+    X_dev_full = df.loc[development_idx, feature_cols].copy()
+    y_dev = df.loc[development_idx, "DMIndicator"].astype(int)
+    resolved_feature_cols = drop_constant_features(feature_cols, X_dev_full)
+    X_dev = X_dev_full[resolved_feature_cols]
+    neg_pos_ratio = get_neg_pos_ratio(y_dev)
+    model_builder = make_model_builders(
+        neg_pos_ratio=neg_pos_ratio,
+        random_state=random_state,
+        use_class_balancing=use_class_balancing,
+    )[model_name]
+    preprocessor, role_info = build_preprocessor(X_dev, resolved_feature_cols, model_name)
+    pipeline = Pipeline([("preprocessor", preprocessor), ("model", model_builder())])
+    return pipeline, X_dev, y_dev, resolved_feature_cols, role_info
+
+
+def run_sklearn_search_tuning(
+    dataset_path: Path = APP_FINAL_DATASET_PATH,
+    out_dir: Path = TRAIN_OUTPUT_DIR,
+    feature_set_name: str | None = None,
+    model_name: str = DEFAULT_PRIMARY_MODEL,
+    n_iter: int = 20,
+    n_splits: int = DEFAULT_DEV_N_SPLITS,
+    test_size: float = 0.3,
+    random_state: int = 42,
+    use_class_balancing: bool = True,
+    include_grid: bool = True,
+    include_random: bool = True,
+) -> dict[str, Any]:
+    ensure_dir(out_dir)
+    df = load_csv(dataset_path)
+    feature_sets, _ = build_feature_sets(df)
+    if feature_set_name is None:
+        feature_set_name = resolve_selected_feature_set(out_dir, feature_sets)
+    if feature_set_name not in feature_sets:
+        raise ValueError(f"Feature set `{feature_set_name}` tidak ditemukan.")
+    if model_name not in make_model_builders(neg_pos_ratio=1.0, random_state=random_state):
+        raise ValueError(f"Model `{model_name}` tidak ditemukan.")
+    if not include_grid and not include_random:
+        raise ValueError("Minimal aktifkan salah satu: include_grid atau include_random.")
+
+    grid_params, random_params = get_sklearn_search_spaces(model_name)
+    development_idx, test_idx = make_development_test_split(df, test_size=test_size, random_state=random_state)
+    split_manifest_path = save_split_manifest(df, development_idx, test_idx, out_dir, test_size=test_size, random_state=random_state)
+    pipeline, X_dev, y_dev, resolved_feature_cols, role_info = build_search_pipeline_for_experiment(
+        df=df,
+        feature_cols=feature_sets[feature_set_name],
+        model_name=model_name,
+        development_idx=development_idx,
+        random_state=random_state,
+        use_class_balancing=use_class_balancing,
+    )
+    cv = get_cv_splitter(y_dev, n_splits=n_splits, random_state=random_state)
+    scoring = {
+        "pr_auc": "average_precision",
+        "roc_auc": "roc_auc",
+        "recall": "recall",
+        "precision": "precision",
+        "f2": make_scorer(fbeta_score, beta=2, zero_division=0),
+    }
+
+    result_frames: list[pd.DataFrame] = []
+    best_rows: list[dict[str, Any]] = []
+    best_param_overrides: dict[str, dict[str, Any]] = {}
+
+    if include_grid:
+        grid_search = GridSearchCV(
+            estimator=pipeline,
+            param_grid=grid_params,
+            scoring=scoring,
+            refit="pr_auc",
+            cv=cv,
+            n_jobs=1,
+            verbose=1,
+            return_train_score=False,
+        )
+        grid_search.fit(X_dev, y_dev)
+        grid_results_df = cv_results_to_frame("grid_search", grid_search.cv_results_)
+        result_frames.append(grid_results_df)
+        stripped_params = strip_pipeline_param_prefix(dict(grid_search.best_params_))
+        best_param_overrides["grid_search"] = stripped_params
+        best_rows.append(
+            {
+                "search_method": "grid_search",
+                "best_mean_pr_auc_searchcv": float(grid_search.best_score_),
+                "best_params": stripped_params,
+            }
+        )
+
+    if include_random:
+        random_n_iter = min(int(n_iter), int(np.prod([len(values) for values in random_params.values()])))
+        random_search = RandomizedSearchCV(
+            estimator=pipeline,
+            param_distributions=random_params,
+            n_iter=random_n_iter,
+            scoring=scoring,
+            refit="pr_auc",
+            cv=cv,
+            n_jobs=1,
+            verbose=1,
+            return_train_score=False,
+            random_state=random_state,
+        )
+        random_search.fit(X_dev, y_dev)
+        random_results_df = cv_results_to_frame("random_search", random_search.cv_results_)
+        result_frames.append(random_results_df)
+        stripped_params = strip_pipeline_param_prefix(dict(random_search.best_params_))
+        best_param_overrides["random_search"] = stripped_params
+        best_rows.append(
+            {
+                "search_method": "random_search",
+                "best_mean_pr_auc_searchcv": float(random_search.best_score_),
+                "best_params": stripped_params,
+            }
+        )
+
+    all_results_df = pd.concat(result_frames, ignore_index=True).sort_values(
+        ["mean_test_pr_auc", "mean_test_recall", "mean_test_f2"],
+        ascending=False,
+    ).reset_index(drop=True)
+    detailed_results_path = out_dir / "sklearn_search_tuning_results.csv"
+    all_results_df.to_csv(detailed_results_path, index=False)
+
+    single_feature_set = {feature_set_name: feature_sets[feature_set_name]}
+    baseline_summary = summarize_cv_results(
+        collect_cv_results(
+            df=df,
+            feature_sets=single_feature_set,
+            model_names=[model_name],
+            development_idx=development_idx,
+            n_splits=n_splits,
+            random_state=random_state,
+            use_class_balancing=use_class_balancing,
+            use_smote=False,
+        )
+    ).iloc[0]
+
+    comparison_rows: list[dict[str, Any]] = [
+        {"tuning_method": "baseline", "best_params": "{}", **baseline_summary.to_dict()}
+    ]
+    optuna_override = get_optuna_override_for_experiment(out_dir, feature_set_name, model_name)
+    if optuna_override:
+        optuna_summary = summarize_cv_results(
+            collect_cv_results(
+                df=df,
+                feature_sets=single_feature_set,
+                model_names=[model_name],
+                development_idx=development_idx,
+                n_splits=n_splits,
+                random_state=random_state,
+                use_class_balancing=use_class_balancing,
+                use_smote=False,
+                overrides=optuna_override,
+            )
+        ).iloc[0]
+        comparison_rows.append(
+            {
+                "tuning_method": "optuna_existing",
+                "best_params": json.dumps(optuna_override.get(model_name, {}), sort_keys=True),
+                **optuna_summary.to_dict(),
+            }
+        )
+
+    for search_method, best_params in best_param_overrides.items():
+        tuned_summary = summarize_cv_results(
+            collect_cv_results(
+                df=df,
+                feature_sets=single_feature_set,
+                model_names=[model_name],
+                development_idx=development_idx,
+                n_splits=n_splits,
+                random_state=random_state,
+                use_class_balancing=use_class_balancing,
+                use_smote=False,
+                overrides={model_name: best_params},
+            )
+        ).iloc[0]
+        comparison_rows.append(
+            {
+                "tuning_method": search_method,
+                "best_params": json.dumps(best_params, sort_keys=True),
+                **tuned_summary.to_dict(),
+            }
+        )
+
+    comparison_df = pd.DataFrame(comparison_rows).sort_values(
+        ["mean_pr_auc", "mean_recall", "mean_f2"],
+        ascending=False,
+    ).reset_index(drop=True)
+    comparison_path = out_dir / "sklearn_search_tuning_comparison.csv"
+    comparison_df.to_csv(comparison_path, index=False)
+
+    best_summary_path = out_dir / "sklearn_search_best_params.json"
+    save_json(
+        best_summary_path,
+        {
+            "created_at": now_iso(),
+            "dataset_path": str(dataset_path),
+            "feature_set": feature_set_name,
+            "model": model_name,
+            "n_splits": int(n_splits),
+            "random_state": int(random_state),
+            "n_iter_random_search": int(n_iter),
+            "resolved_feature_cols": resolved_feature_cols,
+            "role_info": role_info,
+            "best_params": best_param_overrides,
+            "searchcv_best_rows": best_rows,
+        },
+    )
+
+    best_row = comparison_df.iloc[0]
+    baseline_pr_auc = float(comparison_df[comparison_df["tuning_method"] == "baseline"].iloc[0]["mean_pr_auc"])
+    best_pr_auc = float(best_row["mean_pr_auc"])
+    lines: list[str] = []
+    lines.append("# Grid Search and Random Search Tuning Report")
+    lines.append("")
+    lines.append(f"- Created at: `{now_iso()}`")
+    lines.append(f"- Dataset: `{dataset_path}`")
+    lines.append(f"- Feature set: `{feature_set_name}`")
+    lines.append(f"- Model: `{model_name}`")
+    lines.append(f"- Development/Test split: `70/30` dengan random_state `{random_state}`")
+    lines.append(f"- Development CV: `StratifiedKFold(n_splits={n_splits}, shuffle=True, random_state={random_state})`")
+    lines.append(f"- Weighted model: `{use_class_balancing}`")
+    lines.append(f"- Random Search iterations: `{n_iter}`")
+    lines.append("")
+    lines.append("## Tujuan")
+    lines.append("")
+    lines.append("- Menguji apakah `GridSearchCV` atau `RandomizedSearchCV` bisa memperbaiki hasil dibanding baseline dan Optuna yang sudah ada.")
+    lines.append("- Semua tuning dilakukan pada development set saja. Locked test tetap tidak dipakai untuk memilih hyperparameter.")
+    lines.append("- Metric refit utama adalah `PR-AUC` karena data imbalance.")
+    lines.append("")
+    lines.append("## Ringkasan Perbandingan Development CV")
+    lines.append("")
+    for row in comparison_df.to_dict(orient="records"):
+        lines.append(
+            f"- `{row['tuning_method']}`: PR-AUC `{row['mean_pr_auc']:.4f} +/- {row['std_pr_auc']:.4f}`, "
+            f"Recall `{row['mean_recall']:.4f} +/- {row['std_recall']:.4f}`, "
+            f"Precision `{row['mean_precision']:.4f} +/- {row['std_precision']:.4f}`, "
+            f"F2 `{row['mean_f2']:.4f} +/- {row['std_f2']:.4f}`, "
+            f"ROC-AUC `{row['mean_roc_auc']:.4f} +/- {row['std_roc_auc']:.4f}`"
+        )
+    lines.append("")
+    lines.append("## Kesimpulan Sementara")
+    lines.append("")
+    if best_pr_auc > baseline_pr_auc:
+        lines.append(
+            f"- Tuning terbaik adalah `{best_row['tuning_method']}` dengan kenaikan PR-AUC development CV "
+            f"`{best_pr_auc - baseline_pr_auc:+.4f}` dibanding baseline."
+        )
+    else:
+        lines.append(
+            f"- Grid/Random Search belum memperbaiki PR-AUC development CV dibanding baseline. "
+            f"Selisih terbaik terhadap baseline adalah `{best_pr_auc - baseline_pr_auc:+.4f}`."
+        )
+    lines.append("- Jika kenaikannya sangat kecil, secara penelitian lebih aman menyebutnya sebagai eksperimen pembanding, bukan mengganti konfigurasi final secara otomatis.")
+    lines.append("")
+    lines.append("## Best Params")
+    lines.append("")
+    for method, params in best_param_overrides.items():
+        lines.append(f"- `{method}`: `{params}`")
+    lines.append("")
+    lines.append("## Artifacts")
+    lines.append("")
+    lines.append(f"- Split manifest: `{split_manifest_path}`")
+    lines.append(f"- Detailed search results CSV: `{detailed_results_path}`")
+    lines.append(f"- Comparison CSV: `{comparison_path}`")
+    lines.append(f"- Best params JSON: `{best_summary_path}`")
+    report_path = out_dir / "sklearn_search_tuning_report.md"
+    save_markdown(report_path, "\n".join(lines))
+
+    return {
+        "dataset_path": dataset_path,
+        "out_dir": out_dir,
+        "split_manifest_path": split_manifest_path,
+        "results_path": detailed_results_path,
+        "summary_path": comparison_path,
+        "best_params_path": best_summary_path,
+        "report_path": report_path,
+        "results_df": all_results_df,
+        "comparison_df": comparison_df,
+        "best_params": best_param_overrides,
+    }
 
 
 def run_optuna_tuning(
